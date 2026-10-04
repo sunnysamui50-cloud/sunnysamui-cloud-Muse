@@ -61,7 +61,10 @@ const httpServer = createServer(
       return;
     }
 
-    void nodeHandler(\n      req as unknown as NodeIncomingMessageLike,\n      res as unknown as NodeServerResponseLike\n    );
+    void nodeHandler(
+      req as unknown as NodeIncomingMessageLike,
+      res as unknown as NodeServerResponseLike
+    );
   }
 );
 
