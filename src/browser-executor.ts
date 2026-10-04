@@ -76,7 +76,7 @@ export async function assertPublicHttpsUrl(rawUrl: string): Promise<URL> {
   return url;
 }
 
-function getTarget(page: Page, target: { role?: string; name?: string; text?: string }) {
+function getTarget(page: Page, target: { role?: string | undefined; name?: string | undefined; text?: string | undefined }) {
   if (target.name) {
     return target.role
       ? page.getByRole(target.role as Parameters<Page["getByRole"]>[0], { name: target.name })
