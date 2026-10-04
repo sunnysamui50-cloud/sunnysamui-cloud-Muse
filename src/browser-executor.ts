@@ -24,14 +24,14 @@ export interface BrowserExecutor {
 function isPrivateIpv4(ip: string): boolean {
   const parts = ip.split(".").map(Number);
   if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part))) return false;
-  const a = parts[0]!;
-  const b = parts[1]!;
-  return a === 10 ||
-    a === 127 ||
+  const [a, b] = parts as [number, number, number, number];
+  return a === 0 || a === 10 || a === 127 ||
+    (a === 100 && b! >= 64 && b! <= 127) ||
     (a === 169 && b === 254) ||
     (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 0) ||
     (a === 192 && b === 168) ||
-    a === 0;
+    (a === 198 && b >= 18 && b <= 19);
 }
 
 function isPrivateIp(ip: string): boolean {
@@ -45,7 +45,8 @@ function isPrivateIp(ip: string): boolean {
       normalized.startsWith("fe8") ||
       normalized.startsWith("fe9") ||
       normalized.startsWith("fea") ||
-      normalized.startsWith("feb");
+      normalized.startsWith("feb") ||
+      normalized.startsWith("ff");
   }
   return false;
 }
@@ -60,9 +61,7 @@ async function assertPublicHttpsUrl(rawUrl: string): Promise<URL> {
     hostname === "metadata.google.internal" ||
     hostname.endsWith(".internal") ||
     hostname === "host.docker.internal"
-  ) {
-    throw new Error("Browser navigation to internal hosts is blocked");
-  }
+  ) throw new Error("Browser navigation to internal hosts is blocked");
 
   if (isIP(hostname) && isPrivateIp(hostname)) {
     throw new Error("Browser navigation to private IP addresses is blocked");
@@ -74,14 +73,10 @@ async function assertPublicHttpsUrl(rawUrl: string): Promise<URL> {
       throw new Error("Browser navigation to a host resolving to a private IP is blocked");
     }
   }
-
   return url;
 }
 
-function getTarget(
-  page: Page,
-  target: { role?: string | undefined; name?: string | undefined; text?: string | undefined }
-) {
+function getTarget(page: Page, target: { role?: string; name?: string; text?: string }) {
   if (target.name) {
     return target.role
       ? page.getByRole(target.role as Parameters<Page["getByRole"]>[0], { name: target.name })
@@ -90,21 +85,15 @@ function getTarget(
   return page.getByText(target.text!, { exact: true });
 }
 
-async function executeStep(
-  page: Page,
-  step: BrowserStep,
-  evidence: BrowserEvidence[]
-): Promise<Page> {
+async function executeStep(page: Page, step: BrowserStep, evidence: BrowserEvidence[]): Promise<Page> {
   const timeout = step.timeoutMs ?? 10000;
   page.setDefaultTimeout(timeout);
-
   switch (step.type) {
-    case "navigate": {
+    case "navigate":
       await assertPublicHttpsUrl(step.url);
       await page.goto(step.url, { waitUntil: "domcontentloaded", timeout });
       evidence.push({ type: "navigation", url: page.url(), title: await page.title() });
       return page;
-    }
     case "snapshot": {
       const text = (await page.locator("body").innerText({ timeout })).slice(0, step.maxChars);
       evidence.push({ type: "snapshot", url: page.url(), text });
@@ -114,83 +103,75 @@ async function executeStep(
       if (evidence.filter((item) => item.type === "screenshot").length >= MAX_SCREENSHOTS) {
         throw new Error("Mission screenshot limit exceeded");
       }
-      const buffer = await page.screenshot({
-        type: "jpeg",
-        quality: 60,
-        fullPage: step.fullPage,
-        timeout
-      });
-      if (buffer.byteLength > MAX_SCREENSHOT_BYTES) {
-        throw new Error("Screenshot exceeds the 1.5 MB evidence limit");
-      }
-      evidence.push({
-        type: "screenshot",
-        url: page.url(),
-        mimeType: "image/jpeg",
-        data: buffer.toString("base64")
-      });
+      const buffer = await page.screenshot({ type: "jpeg", quality: 60, fullPage: step.fullPage, timeout });
+      if (buffer.byteLength > MAX_SCREENSHOT_BYTES) throw new Error("Screenshot exceeds the 1.5 MB evidence limit");
+      evidence.push({ type: "screenshot", url: page.url(), mimeType: "image/jpeg", data: buffer.toString("base64") });
       return page;
     }
     case "click": {
       const locator = getTarget(page, step.target);
       await locator.first().click({ timeout });
-      evidence.push({
-        type: "action",
-        action: "click:" + (step.target.name ?? step.target.text),
-        url: page.url()
-      });
+      evidence.push({ type: "action", action: "click:" + (step.target.name ?? step.target.text), url: page.url() });
       return page;
     }
     case "type": {
-      const locator = step.target.label
-        ? page.getByLabel(step.target.label)
-        : page.getByPlaceholder(step.target.placeholder!);
+      const locator = step.target.label ? page.getByLabel(step.target.label) : page.getByPlaceholder(step.target.placeholder!);
       await locator.fill(step.text, { timeout });
       if (step.submit) await locator.press("Enter", { timeout });
       evidence.push({ type: "action", action: "type", url: page.url() });
       return page;
     }
-    case "wait": {
-      if (step.text) {
-        await page.getByText(step.text, { exact: false }).first().waitFor({ state: "visible", timeout });
-      } else {
-        await new Promise((resolve) => setTimeout(resolve, step.milliseconds));
-      }
+    case "wait":
+      if (step.text) await page.getByText(step.text, { exact: false }).first().waitFor({ state: "visible", timeout });
+      else await new Promise((resolve) => setTimeout(resolve, step.milliseconds));
       evidence.push({ type: "action", action: "wait", url: page.url() });
       return page;
-    }
   }
 }
 
 export class PlaywrightBrowserExecutor implements BrowserExecutor {
   async run(mission: BrowserMission) {
-    const browser: Browser = await chromium.launch({ headless: true, chromiumSandbox: true });
-    const context: BrowserContext = await browser.newContext({
-      serviceWorkers: "block",
-      ignoreHTTPSErrors: false,
-      viewport: { width: 1440, height: 900 }
-    });
-
-    await context.route("**/*", async (route) => {
-      try {
-        await assertPublicHttpsUrl(route.request().url());
-        await route.continue();
-      } catch {
-        await route.abort("blockedbyclient");
-      }
-    });
-
-    const page = await context.newPage();
-    const evidence: BrowserEvidence[] = [];
-    const timer = setTimeout(() => void context.close(), mission.maxDurationMs);
+    let browser: Browser | undefined;
+    let context: BrowserContext | undefined;
+    let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
 
     try {
-      for (const step of mission.steps) await executeStep(page, step, evidence);
+      browser = await chromium.launch({ headless: true, chromiumSandbox: true });
+      context = await browser.newContext({
+        serviceWorkers: "block",
+        ignoreHTTPSErrors: false,
+        viewport: { width: 1440, height: 900 }
+      });
+
+      await context.route("**/*", async (route) => {
+        try {
+          await assertPublicHttpsUrl(route.request().url());
+          await route.continue();
+        } catch {
+          await route.abort("blockedbyclient");
+        }
+      });
+
+      const page = await context.newPage();
+      const evidence: BrowserEvidence[] = [];
+      let expired = false;
+
+      deadlineTimer = setTimeout(() => {
+        expired = true;
+        void context?.close();
+      }, mission.maxDurationMs);
+
+      for (const step of mission.steps) {
+        if (expired) throw new Error("Browser mission exceeded its hard deadline");
+        await executeStep(page, step, evidence);
+      }
+
+      if (expired) throw new Error("Browser mission exceeded its hard deadline");
       return { ok: true as const, finalUrl: page.url(), title: await page.title(), evidence };
     } finally {
-      clearTimeout(timer);
-      await context.close();
-      await browser.close();
+      if (deadlineTimer) clearTimeout(deadlineTimer);
+      await context?.close().catch(() => undefined);
+      await browser?.close().catch(() => undefined);
     }
   }
 }
