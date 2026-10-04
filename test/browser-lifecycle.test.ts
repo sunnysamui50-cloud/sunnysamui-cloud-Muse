@@ -9,7 +9,7 @@ test("browser executor enforces the hard mission deadline", { skip: process.env.
     steps: [{ type: "wait", milliseconds: 10000 }]
   });
   const started = Date.now();
-  await assert.rejects(() => new PlaywrightBrowserExecutor().run(mission), /hard deadline/i);
+  try { await new PlaywrightBrowserExecutor().run(mission); assert.fail("mission unexpectedly succeeded"); } catch (error) { assert.match(error instanceof Error ? error.message : String(error), /hard deadline/i); }
   assert.ok(Date.now() - started < 8000, "deadline must terminate the mission promptly");
 });
 
@@ -21,6 +21,6 @@ test("browser executor honours caller cancellation", { skip: process.env.MUSE_BR
   });
   setTimeout(() => controller.abort(), 100);
   const started = Date.now();
-  await assert.rejects(() => new PlaywrightBrowserExecutor().run(mission, controller.signal), /cancelled/i);
+  try { await new PlaywrightBrowserExecutor().run(mission, controller.signal); assert.fail("mission unexpectedly succeeded"); } catch (error) { assert.match(error instanceof Error ? error.message : String(error), /cancelled/i); }
   assert.ok(Date.now() - started < 3000, "caller cancellation must terminate promptly");
 });

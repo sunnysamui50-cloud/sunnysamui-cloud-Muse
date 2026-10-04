@@ -156,7 +156,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
       deadlineTimer = setTimeout(() => {
         expired = true;
         rejectDeadline?.(new Error("Browser mission exceeded its hard deadline"));
-        void context?.close();
+
       }, mission.maxDurationMs);
       signal?.addEventListener("abort", abortHandler, { once: true });
       browser = await chromium.launch({ headless: true, chromiumSandbox: typeof process.getuid === "function" ? process.getuid() !== 0 : true });
