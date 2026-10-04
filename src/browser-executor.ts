@@ -24,7 +24,8 @@ export interface BrowserExecutor {
 function isPrivateIpv4(ip: string): boolean {
   const parts = ip.split(".").map(Number);
   if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part))) return false;
-  const [a, b] = parts;
+  const a = parts[0]!;
+  const b = parts[1]!;
   return a === 10 ||
     a === 127 ||
     (a === 169 && b === 254) ||
@@ -77,7 +78,10 @@ async function assertPublicHttpsUrl(rawUrl: string): Promise<URL> {
   return url;
 }
 
-function getTarget(page: Page, target: { role?: string; name?: string; text?: string }) {
+function getTarget(
+  page: Page,
+  target: { role?: string | undefined; name?: string | undefined; text?: string | undefined }
+) {
   if (target.name) {
     return target.role
       ? page.getByRole(target.role as Parameters<Page["getByRole"]>[0], { name: target.name })
