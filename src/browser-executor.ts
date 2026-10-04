@@ -147,7 +147,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
         void context?.close();
       }, mission.maxDurationMs);
       signal?.addEventListener("abort", abortHandler, { once: true });
-      browser = await chromium.launch({ headless: true, chromiumSandbox: true });
+      browser = await chromium.launch({ headless: true, chromiumSandbox: typeof process.getuid === "function" ? process.getuid() !== 0 : true });
       context = await browser.newContext({
         serviceWorkers: "block",
         ignoreHTTPSErrors: false,
