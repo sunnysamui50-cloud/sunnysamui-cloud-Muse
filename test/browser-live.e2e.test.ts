@@ -12,7 +12,7 @@ test("REAL browser mission reaches an external site, types, clicks, reads and ca
       { type: "navigate", url: "https://en.wikipedia.org/wiki/Main_Page" },
       { type: "snapshot" },
       { type: "screenshot" },
-      { type: "type", target: { selector: 'input[name="search"]' }, text: "Koh Samui" },
+      { type: "type", target: { selector: 'input[type="search"]' }, text: "Koh Samui" },
       { type: "click", target: { selector: 'button[type="submit"]' } },
       { type: "wait", text: "Koh Samui", timeoutMs: 15000 },
       { type: "snapshot", maxChars: 12000 },

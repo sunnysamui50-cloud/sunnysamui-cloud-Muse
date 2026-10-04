@@ -5,6 +5,7 @@ import type { BrowserMission, BrowserStep } from "./browser-schemas.js";
 
 const MAX_SCREENSHOTS = 3;
 const MAX_SCREENSHOT_BYTES = 1_500_000;
+const DNS_LOOKUP_TIMEOUT_MS = 2000;
 
 export type BrowserEvidence =
   | { type: "navigation"; url: string; title: string }
@@ -68,7 +69,10 @@ export async function assertPublicHttpsUrl(rawUrl: string): Promise<URL> {
   }
 
   if (!isIP(hostname)) {
-    const addresses = await dns.lookup(hostname, { all: true });
+    const addresses = await Promise.race([
+      dns.lookup(hostname, { all: true }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Browser DNS lookup timed out")), DNS_LOOKUP_TIMEOUT_MS))
+    ]);
     if (addresses.some(({ address }) => isPrivateIp(address))) {
       throw new Error("Browser navigation to a host resolving to a private IP is blocked");
     }
