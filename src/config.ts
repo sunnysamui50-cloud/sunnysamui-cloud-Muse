@@ -8,7 +8,20 @@ const ConfigSchema = z.object({
     "APP_API_BASE_URL must use HTTPS"
   ),
   APP_API_TOKEN: z.string().min(1),
-  APP_API_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(10000)
+  APP_API_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(10000),
+  BROWSER_WORKER_URL: z.string().url().refine(
+    (value) => value.startsWith("https://"),
+    "BROWSER_WORKER_URL must use HTTPS"
+  ).optional(),
+  BROWSER_WORKER_TOKEN: z.string().min(32).optional()
+}).superRefine((value, ctx) => {
+  if (Boolean(value.BROWSER_WORKER_URL) !== Boolean(value.BROWSER_WORKER_TOKEN)) {
+    ctx.addIssue({
+      code: "custom",
+      message: "BROWSER_WORKER_URL and BROWSER_WORKER_TOKEN must be configured together",
+      path: ["BROWSER_WORKER_URL"]
+    });
+  }
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
