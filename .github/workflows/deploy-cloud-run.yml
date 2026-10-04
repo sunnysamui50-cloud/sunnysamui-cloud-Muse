@@ -1,6 +1,9 @@
-name: Deploy Muse MCP to Cloud Run
+name: Deploy Muse to Cloud Run
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -9,12 +12,13 @@ permissions:
 
 env:
   REGION: europe-west2
-  SERVICE: muse-mcp
+  MUSE_SERVICE: muse-mcp
+  BROWSER_SERVICE: muse-browser-worker
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,15 +35,47 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
-      - name: Build container
-        run: docker build --tag ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-mcp:${{ github.sha }} .
-
-      - name: Push container
-        run: docker push ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-mcp:${{ github.sha }}
-
-      - name: Deploy to Cloud Run
+      - name: Build Muse container
         run: |
-          gcloud run deploy "${{ env.SERVICE }}" \
+          docker build \
+            --tag ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-mcp:${{ github.sha }} \
+            .
+
+      - name: Push Muse container
+        run: |
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-mcp:${{ github.sha }}
+
+      - name: Build browser worker container
+        run: |
+          docker build \
+            --file Dockerfile.browser \
+            --tag ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-browser-worker:${{ github.sha }} \
+            .
+
+      - name: Push browser worker container
+        run: |
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-browser-worker:${{ github.sha }}
+
+      - name: Deploy browser worker
+        id: browser
+        run: |
+          gcloud run deploy "${{ env.BROWSER_SERVICE }}" \
+            --image "${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-browser-worker:${{ github.sha }}" \
+            --region "${{ env.REGION }}" \
+            --platform managed \
+            --allow-unauthenticated \
+            --min 0 \
+            --max 2 \
+            --cpu 1 \
+            --memory 1Gi \
+            --concurrency 1 \
+            --timeout 120s \
+            --set-secrets "BROWSER_WORKER_TOKEN=MUSE_BROWSER_WORKER_TOKEN:latest"
+          echo "url=$(gcloud run services describe "${{ env.BROWSER_SERVICE }}" --region "${{ env.REGION }}" --format='value(status.url)')" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy Muse MCP
+        run: |
+          gcloud run deploy "${{ env.MUSE_SERVICE }}" \
             --image "${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-mcp:${{ github.sha }}" \
             --region "${{ env.REGION }}" \
             --platform managed \
@@ -49,5 +85,12 @@ jobs:
             --cpu 1 \
             --memory 512Mi \
             --concurrency 40 \
-            --set-env-vars "APP_API_BASE_URL=${{ vars.APP_API_BASE_URL }},APP_API_TIMEOUT_MS=10000" \
-            --set-secrets "MCP_BEARER_TOKEN=MUSE_MCP_BEARER_TOKEN:latest,APP_API_TOKEN=MUSE_APP_API_TOKEN:latest"
+            --set-env-vars "APP_API_BASE_URL=${{ vars.APP_API_BASE_URL }},APP_API_TIMEOUT_MS=10000,BROWSER_WORKER_URL=${{ steps.browser.outputs.url }}" \
+            --set-secrets "MCP_BEARER_TOKEN=MUSE_MCP_BEARER_TOKEN:latest,APP_API_TOKEN=MUSE_APP_API_TOKEN:latest,BROWSER_WORKER_TOKEN=MUSE_BROWSER_WORKER_TOKEN:latest"
+
+      - name: Show service URLs
+        run: |
+          echo "Muse MCP:"
+          gcloud run services describe "${{ env.MUSE_SERVICE }}" --region "${{ env.REGION }}" --format='value(status.url)'
+          echo "Browser worker:"
+          echo "${{ steps.browser.outputs.url }}"
