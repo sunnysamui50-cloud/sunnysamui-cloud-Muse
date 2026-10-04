@@ -2,15 +2,15 @@
   "name": "muse-mcp",
   "version": "0.1.0",
   "private": true,
-  "description": "Minimal authenticated MCP bridge for controlled AI access to owned application APIs.",
+  "description": "Minimal authenticated MCP bridge for controlled AI access to owned application APIs and browser evidence.",
   "type": "module",
-  "engines": {
-    "node": ">=22"
-  },
+  "engines": { "node": ">=22" },
   "scripts": {
     "dev": "tsx src/server.ts",
+    "dev:browser": "tsx src/browser-worker.ts",
     "build": "tsc",
     "start": "node dist/src/server.js",
+    "start:browser": "node dist/src/browser-worker.js",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test",
     "verify:live": "node scripts/verify-live.mjs"
@@ -19,6 +19,7 @@
     "@modelcontextprotocol/node": "2.1.1",
     "@modelcontextprotocol/server": "2.3.0",
     "express": "5.2.1",
+    "playwright": "1.63.0",
     "zod": "4.6.5"
   },
   "devDependencies": {

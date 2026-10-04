@@ -23,4 +23,15 @@ test("accepts valid configuration and defaults timeout", () => {
 
   assert.equal(config.PORT, 3000);
   assert.equal(config.APP_API_TIMEOUT_MS, 10000);
+  assert.equal(config.BROWSER_WORKER_URL, undefined);
+});
+
+test("requires browser worker URL and token together", () => {
+  assert.throws(() => loadConfig({
+    PORT: "3000",
+    MCP_BEARER_TOKEN: "a".repeat(32),
+    APP_API_BASE_URL: "https://example.com",
+    APP_API_TOKEN: "token",
+    BROWSER_WORKER_URL: "https://browser.example.com"
+  }));
 });
