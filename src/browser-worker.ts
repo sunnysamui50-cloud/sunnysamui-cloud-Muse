@@ -1,7 +1,9 @@
 import express from "express";
+import { randomUUID } from "node:crypto";
 import { BrowserMissionSchema } from "./browser-schemas.js";
 import { PlaywrightBrowserExecutor } from "./browser-executor.js";
 import { isAuthorized } from "./auth.js";
+import { audit, hashInput, runWithRequestId } from "./request-context.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -9,7 +11,6 @@ app.use(express.json({ limit: "5mb" }));
 
 const token = process.env.BROWSER_WORKER_TOKEN;
 if (!token || token.length < 32) throw new Error("BROWSER_WORKER_TOKEN must be at least 32 characters");
-
 const port = Number(process.env.PORT ?? 8080);
 const executor = new PlaywrightBrowserExecutor();
 
@@ -18,30 +19,47 @@ app.get("/healthz", (_req, res) => {
 });
 
 app.post("/v1/browser/missions", async (req, res) => {
-  if (!isAuthorized(req.headers, token)) {
-    res.status(401).json({ error: "UNAUTHORIZED", message: "Missing or invalid bearer token" });
-    return;
-  }
+  const requestId = typeof req.headers["x-request-id"] === "string"
+    ? req.headers["x-request-id"] : randomUUID();
 
-  const parsed = BrowserMissionSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({
-      error: "INVALID_MISSION",
-      message: "Browser mission failed validation",
-      details: parsed.error.flatten()
-    });
-    return;
-  }
+  runWithRequestId(requestId, async () => {
+    if (!isAuthorized(req.headers, token)) {
+      audit("browser_request", { outcome: "unauthorized" });
+      res.status(401).json({ error: "UNAUTHORIZED", message: "Missing or invalid bearer token" });
+      return;
+    }
 
-  try {
-    const result = await executor.run(parsed.data);
-    res.status(200).json(result);
-  } catch (error) {
-    res.status(502).json({
-      error: "BROWSER_MISSION_FAILED",
-      message: error instanceof Error ? error.message : "Browser mission failed"
-    });
-  }
+    const parsed = BrowserMissionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      audit("browser_request", { outcome: "invalid_input" });
+      res.status(400).json({
+        error: "INVALID_MISSION",
+        message: "Browser mission failed validation",
+        details: parsed.error.flatten()
+      });
+      return;
+    }
+
+    const started = Date.now();
+    try {
+      const result = await executor.run(parsed.data);
+      audit("browser_request", {
+        outcome: "success", inputHash: hashInput(parsed.data), latencyMs: Date.now() - started
+      });
+      res.status(200).json(result);
+    } catch (error) {
+      audit("browser_request", {
+        outcome: "error", inputHash: hashInput(parsed.data), latencyMs: Date.now() - started
+      });
+      res.status(502).json({
+        error: "BROWSER_MISSION_FAILED",
+        message: error instanceof Error ? error.message : "Browser mission failed"
+      });
+    }
+  }).catch((error) => {
+    audit("browser_request", { outcome: "handler_error", error: error instanceof Error ? error.name : "unknown" });
+    if (!res.headersSent) res.status(500).json({ error: "INTERNAL_ERROR", message: "Browser worker request failed" });
+  });
 });
 
 app.use((_req, res) => {
@@ -49,5 +67,5 @@ app.use((_req, res) => {
 });
 
 app.listen(port, "0.0.0.0", () => {
-  console.error(JSON.stringify({ service: "muse-browser-worker", port }));
+  audit("service_ready", { service: "muse-browser-worker", port });
 });

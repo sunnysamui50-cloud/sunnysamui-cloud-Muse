@@ -1,5 +1,6 @@
 import type { Config } from "./config.js";
 import type { BrowserMission } from "./browser-schemas.js";
+import { getRequestId } from "./request-context.js";
 
 export class BrowserApiError extends Error {
   constructor(message: string, readonly status: number) {
@@ -15,24 +16,19 @@ export class BrowserClient {
     if (!this.config.BROWSER_WORKER_URL || !this.config.BROWSER_WORKER_TOKEN) {
       throw new BrowserApiError("Browser worker is not configured", 503);
     }
-
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), input.maxDurationMs + 5000);
-
     try {
-      const response = await fetch(
-        this.config.BROWSER_WORKER_URL + "/v1/browser/missions",
-        {
-          method: "POST",
-          headers: {
-            authorization: "Bearer " + this.config.BROWSER_WORKER_TOKEN,
-            "content-type": "application/json"
-          },
-          body: JSON.stringify(input),
-          signal: controller.signal
-        }
-      );
-
+      const response = await fetch(this.config.BROWSER_WORKER_URL + "/v1/browser/missions", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer " + this.config.BROWSER_WORKER_TOKEN,
+          "content-type": "application/json",
+          "x-request-id": getRequestId()
+        },
+        body: JSON.stringify(input),
+        signal: controller.signal
+      });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new BrowserApiError(
