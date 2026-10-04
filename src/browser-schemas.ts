@@ -14,8 +14,9 @@ const ClickStep = StepBase.extend({ type: z.literal("click"), target: ClickTarge
 const TypeTarget = z.object({
   label: z.string().trim().min(1).max(200).optional(),
   placeholder: z.string().trim().min(1).max(200).optional(),
+  name: z.string().trim().min(1).max(200).optional(),
   role: z.literal("textbox").default("textbox")
-}).strict().refine((value) => Boolean(value.label ?? value.placeholder), "Type target requires label or placeholder");
+}).strict().refine((value) => Boolean(value.label ?? value.placeholder ?? value.name), "Type target requires label or placeholder");
 const TypeStep = StepBase.extend({ type: z.literal("type"), target: TypeTarget, text: z.string().max(2000), submit: z.boolean().default(false) });
 const WaitStep = StepBase.extend({
   type: z.literal("wait"),

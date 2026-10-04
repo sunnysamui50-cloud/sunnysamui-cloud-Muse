@@ -9,10 +9,10 @@ test("REAL browser mission reaches an external site, types, clicks, reads and ca
   const mission = BrowserMissionSchema.parse({
     maxDurationMs: 45000,
     steps: [
-      { type: "navigate", url: "https://www.wikipedia.org/" },
+      { type: "navigate", url: "https://en.wikipedia.org/wiki/Main_Page" },
       { type: "snapshot" },
       { type: "screenshot" },
-      { type: "type", target: { placeholder: "Search Wikipedia" }, text: "Koh Samui" },
+      { type: "type", target: { name: "Search Wikipedia" }, text: "Koh Samui" },
       { type: "click", target: { role: "button", name: "Search" } },
       { type: "wait", text: "Koh Samui", timeoutMs: 15000 },
       { type: "snapshot", maxChars: 12000 },

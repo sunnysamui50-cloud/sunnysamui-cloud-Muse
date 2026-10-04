@@ -115,7 +115,11 @@ async function executeStep(page: Page, step: BrowserStep, evidence: BrowserEvide
       return page;
     }
     case "type": {
-      const locator = step.target.label ? page.getByLabel(step.target.label) : page.getByPlaceholder(step.target.placeholder!);
+      const locator = step.target.label
+        ? page.getByLabel(step.target.label)
+        : step.target.placeholder
+          ? page.getByPlaceholder(step.target.placeholder)
+          : page.getByRole("textbox", { name: step.target.name! });
       await locator.fill(step.text, { timeout });
       if (step.submit) await locator.press("Enter", { timeout });
       evidence.push({ type: "action", action: "type", url: page.url() });
@@ -168,7 +172,12 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
 
       for (const step of mission.steps) {
         if (expired) throw new Error("Browser mission exceeded its hard deadline");
-        await Promise.race([executeStep(page, step, evidence), deadline]);
+        try {
+          await Promise.race([executeStep(page, step, evidence), deadline]);
+        } catch (error) {
+          if (expired) throw new Error("Browser mission exceeded its hard deadline");
+          throw error;
+        }
       }
 
       if (expired) throw new Error("Browser mission exceeded its hard deadline");
