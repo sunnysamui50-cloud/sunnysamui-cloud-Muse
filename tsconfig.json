@@ -11,7 +11,9 @@
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": ["node"],
+    "rootDir": ".",
+    "outDir": "dist"
   },
   "include": ["src/**/*.ts", "test/**/*.ts"]
 }
