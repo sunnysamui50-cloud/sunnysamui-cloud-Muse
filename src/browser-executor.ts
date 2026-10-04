@@ -51,7 +51,7 @@ function isPrivateIp(ip: string): boolean {
   return false;
 }
 
-async function assertPublicHttpsUrl(rawUrl: string): Promise<URL> {
+export async function assertPublicHttpsUrl(rawUrl: string): Promise<URL> {
   const url = new URL(rawUrl);
   if (url.protocol !== "https:") throw new Error("Browser navigation is restricted to HTTPS");
 
