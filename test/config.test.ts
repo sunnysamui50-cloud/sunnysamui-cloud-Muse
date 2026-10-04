@@ -1,0 +1,26 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { loadConfig } from "../src/config.js";
+
+test("rejects weak token and non-HTTPS upstream", () => {
+  assert.throws(() =>
+    loadConfig({
+      PORT: "3000",
+      MCP_BEARER_TOKEN: "short",
+      APP_API_BASE_URL: "http://example.com",
+      APP_API_TOKEN: "token"
+    })
+  );
+});
+
+test("accepts valid configuration and defaults timeout", () => {
+  const config = loadConfig({
+    PORT: "3000",
+    MCP_BEARER_TOKEN: "a".repeat(32),
+    APP_API_BASE_URL: "https://example.com",
+    APP_API_TOKEN: "token"
+  });
+
+  assert.equal(config.PORT, 3000);
+  assert.equal(config.APP_API_TIMEOUT_MS, 10000);
+});
