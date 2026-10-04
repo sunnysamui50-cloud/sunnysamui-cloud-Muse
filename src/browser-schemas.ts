@@ -27,7 +27,10 @@ export const BrowserStepSchema = z.discriminatedUnion("type", [NavigateStep, Sna
 export const BrowserMissionSchema = z.object({
   steps: z.array(BrowserStepSchema).min(1).max(12),
   maxDurationMs: z.number().int().min(5000).max(90000).default(60000)
-}).strict();
+}).strict().refine(
+  (mission) => mission.steps.filter((step) => step.type === "screenshot").length <= 3,
+  "Mission may request at most three screenshots"
+);
 export type BrowserMission = z.infer<typeof BrowserMissionSchema>;
 export type BrowserStep = z.infer<typeof BrowserStepSchema>;
 
