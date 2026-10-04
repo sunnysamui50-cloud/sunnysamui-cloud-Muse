@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { toNodeHandler } from "@modelcontextprotocol/node";
+import { toNodeHandler, type NodeIncomingMessageLike, type NodeServerResponseLike } from "@modelcontextprotocol/node";
 import { createMcpHandler } from "@modelcontextprotocol/server";
 
 import { loadConfig } from "./config.js";
@@ -61,7 +61,7 @@ const httpServer = createServer(
       return;
     }
 
-    void nodeHandler(req, res);
+    void nodeHandler(\n      req as unknown as NodeIncomingMessageLike,\n      res as unknown as NodeServerResponseLike\n    );
   }
 );
 
