@@ -13,7 +13,7 @@ test("REAL browser mission reaches an external site, types, clicks, reads and ca
       { type: "snapshot" },
       { type: "screenshot" },
       { type: "type", target: { selector: 'input[type="search"]:visible' }, text: "Koh Samui" },
-      { type: "click", target: { selector: 'button[type="submit"]:visible' } },
+      { type: "click", target: { selector: 'button:has-text("Search"):visible' } },
       { type: "wait", text: "Koh Samui", timeoutMs: 15000 },
       { type: "snapshot", maxChars: 12000 },
       { type: "screenshot" }

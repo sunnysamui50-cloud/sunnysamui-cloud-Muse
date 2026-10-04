@@ -149,7 +149,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
     let expired = false;
     let cancelled = false;
     const deadline = new Promise<never>((_, reject) => { rejectDeadline = reject; });
-    const abortHandler = () => { cancelled = true; rejectDeadline?.(new Error("Browser mission cancelled")); void context?.close(); };
+    const abortHandler = () => { cancelled = true; rejectDeadline?.(new Error("Browser mission cancelled")); void context?.close().catch(() => undefined); };
 
     try {
       if (signal?.aborted) throw new Error("Browser mission cancelled");
