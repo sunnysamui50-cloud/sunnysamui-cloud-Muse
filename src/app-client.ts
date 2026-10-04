@@ -50,13 +50,18 @@ export class AppClient {
       }
 
       if (!response.ok) {
-        const message =
+        const upstreamMessage =
           typeof body === "object" &&
           body !== null &&
           "message" in body &&
           typeof body.message === "string"
             ? body.message
-            : `Application API returned HTTP ${response.status}`;
+            : undefined;
+
+        const message =
+          response.status >= 500
+            ? "Application API returned a server error"
+            : upstreamMessage ?? `Application API returned HTTP ${response.status}`;
 
         throw new AppApiError(
           message,
