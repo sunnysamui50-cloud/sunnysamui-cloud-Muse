@@ -30,3 +30,19 @@ export const BrowserMissionSchema = z.object({
 }).strict();
 export type BrowserMission = z.infer<typeof BrowserMissionSchema>;
 export type BrowserStep = z.infer<typeof BrowserStepSchema>;
+
+const NavigationEvidence = z.object({ type: z.literal("navigation"), url: z.string().url(), title: z.string().max(500) }).strict();
+const SnapshotEvidence = z.object({ type: z.literal("snapshot"), url: z.string().url(), text: z.string().max(20000) }).strict();
+const ScreenshotEvidence = z.object({ type: z.literal("screenshot"), url: z.string().url(), mimeType: z.literal("image/jpeg"), data: z.string().regex(/^[A-Za-z0-9+/]*={0,2}$/).max(2_000_000) }).strict();
+const ActionEvidence = z.object({ type: z.literal("action"), action: z.string().min(1).max(500), url: z.string().url() }).strict();
+
+export const BrowserEvidenceSchema = z.discriminatedUnion("type", [
+  NavigationEvidence, SnapshotEvidence, ScreenshotEvidence, ActionEvidence
+]);
+
+export const BrowserMissionResultSchema = z.object({
+  ok: z.literal(true),
+  finalUrl: z.string().url(),
+  title: z.string().max(500),
+  evidence: z.array(BrowserEvidenceSchema).max(12)
+}).strict();

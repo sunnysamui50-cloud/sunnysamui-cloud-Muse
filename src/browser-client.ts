@@ -1,5 +1,5 @@
 import type { Config } from "./config.js";
-import type { BrowserMission } from "./browser-schemas.js";
+import { BrowserMissionResultSchema, type BrowserMission } from "./browser-schemas.js";
 import { getRequestId } from "./request-context.js";
 
 export class BrowserApiError extends Error {
@@ -36,7 +36,9 @@ export class BrowserClient {
           response.status
         );
       }
-      return body;
+      const parsed = BrowserMissionResultSchema.safeParse(body);
+      if (!parsed.success) throw new BrowserApiError("Browser worker returned an invalid mission result", 502);
+      return parsed.data;
     } catch (error) {
       if (error instanceof BrowserApiError) throw error;
       throw new BrowserApiError("Browser worker request failed", 503);
