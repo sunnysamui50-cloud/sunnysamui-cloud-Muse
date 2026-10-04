@@ -191,6 +191,10 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
 
       if (expired) throw new Error("Browser mission exceeded its hard deadline");
       return { ok: true as const, finalUrl: page.url(), title: await page.title(), evidence };
+    } catch (error) {
+      if (expired) throw new Error("Browser mission exceeded its hard deadline");
+      if (cancelled) throw new Error("Browser mission cancelled");
+      throw error;
     } finally {
       if (deadlineTimer) clearTimeout(deadlineTimer);
       signal?.removeEventListener("abort", abortHandler);
