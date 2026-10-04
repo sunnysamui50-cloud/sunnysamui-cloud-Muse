@@ -130,12 +130,17 @@ async function executeStep(page: Page, step: BrowserStep, evidence: BrowserEvide
 }
 
 export class PlaywrightBrowserExecutor implements BrowserExecutor {
-  async run(mission: BrowserMission) {
+  async run(mission: BrowserMission, signal?: AbortSignal) {
     let browser: Browser | undefined;
     let context: BrowserContext | undefined;
     let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
+    let rejectDeadline: ((error: Error) => void) | undefined;
+    const deadline = new Promise<never>((_, reject) => { rejectDeadline = reject; });
+    const abortHandler = () => rejectDeadline?.(new Error("Browser mission cancelled"));
 
     try {
+      if (signal?.aborted) throw new Error("Browser mission cancelled");
+      signal?.addEventListener("abort", abortHandler, { once: true });
       browser = await chromium.launch({ headless: true, chromiumSandbox: true });
       context = await browser.newContext({
         serviceWorkers: "block",
@@ -158,18 +163,20 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
 
       deadlineTimer = setTimeout(() => {
         expired = true;
+        rejectDeadline?.(new Error("Browser mission exceeded its hard deadline"));
         void context?.close();
       }, mission.maxDurationMs);
 
       for (const step of mission.steps) {
         if (expired) throw new Error("Browser mission exceeded its hard deadline");
-        await executeStep(page, step, evidence);
+        await Promise.race([executeStep(page, step, evidence), deadline]);
       }
 
       if (expired) throw new Error("Browser mission exceeded its hard deadline");
       return { ok: true as const, finalUrl: page.url(), title: await page.title(), evidence };
     } finally {
       if (deadlineTimer) clearTimeout(deadlineTimer);
+      signal?.removeEventListener("abort", abortHandler);
       await context?.close().catch(() => undefined);
       await browser?.close().catch(() => undefined);
     }

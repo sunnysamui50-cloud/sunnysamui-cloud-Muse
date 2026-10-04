@@ -41,8 +41,10 @@ app.post("/v1/browser/missions", async (req, res) => {
     }
 
     const started = Date.now();
+    const controller = new AbortController();
+    req.once("aborted", () => controller.abort());
     try {
-      const result = await executor.run(parsed.data);
+      const result = await executor.run(parsed.data, controller.signal);
       audit("browser_request", {
         outcome: "success", inputHash: hashInput(parsed.data), latencyMs: Date.now() - started
       });
