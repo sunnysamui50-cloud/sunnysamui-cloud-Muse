@@ -135,6 +135,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
     let context: BrowserContext | undefined;
     let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
     let rejectDeadline: ((error: Error) => void) | undefined;
+    let expired = false;
     const deadline = new Promise<never>((_, reject) => { rejectDeadline = reject; });
     const abortHandler = () => rejectDeadline?.(new Error("Browser mission cancelled"));
 
@@ -164,7 +165,6 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
 
       const page = await context.newPage();
       const evidence: BrowserEvidence[] = [];
-      let expired = false;
 
       for (const step of mission.steps) {
         if (expired) throw new Error("Browser mission exceeded its hard deadline");
