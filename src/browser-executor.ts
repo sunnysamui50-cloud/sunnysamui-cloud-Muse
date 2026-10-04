@@ -140,6 +140,11 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
 
     try {
       if (signal?.aborted) throw new Error("Browser mission cancelled");
+      deadlineTimer = setTimeout(() => {
+        expired = true;
+        rejectDeadline?.(new Error("Browser mission exceeded its hard deadline"));
+        void context?.close();
+      }, mission.maxDurationMs);
       signal?.addEventListener("abort", abortHandler, { once: true });
       browser = await chromium.launch({ headless: true, chromiumSandbox: true });
       context = await browser.newContext({
@@ -160,12 +165,6 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
       const page = await context.newPage();
       const evidence: BrowserEvidence[] = [];
       let expired = false;
-
-      deadlineTimer = setTimeout(() => {
-        expired = true;
-        rejectDeadline?.(new Error("Browser mission exceeded its hard deadline"));
-        void context?.close();
-      }, mission.maxDurationMs);
 
       for (const step of mission.steps) {
         if (expired) throw new Error("Browser mission exceeded its hard deadline");
