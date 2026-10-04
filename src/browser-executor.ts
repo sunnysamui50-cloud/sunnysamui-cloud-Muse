@@ -77,6 +77,7 @@ export async function assertPublicHttpsUrl(rawUrl: string): Promise<URL> {
 }
 
 function getTarget(page: Page, target: { role?: string | undefined; name?: string | undefined; text?: string | undefined }) {
+  if (target.selector) return page.locator(target.selector);
   if (target.name) {
     return target.role
       ? page.getByRole(target.role as Parameters<Page["getByRole"]>[0], { name: target.name })
@@ -115,11 +116,13 @@ async function executeStep(page: Page, step: BrowserStep, evidence: BrowserEvide
       return page;
     }
     case "type": {
-      const locator = step.target.label
-        ? page.getByLabel(step.target.label)
-        : step.target.placeholder
-          ? page.getByPlaceholder(step.target.placeholder)
-          : page.getByRole("textbox", { name: step.target.name! });
+      const locator = step.target.selector
+        ? page.locator(step.target.selector)
+        : step.target.label
+          ? page.getByLabel(step.target.label)
+          : step.target.placeholder
+            ? page.getByPlaceholder(step.target.placeholder)
+            : page.getByRole("textbox", { name: step.target.name! });
       await locator.fill(step.text, { timeout });
       if (step.submit) await locator.press("Enter", { timeout });
       evidence.push({ type: "action", action: "type", url: page.url() });
@@ -140,8 +143,9 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
     let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
     let rejectDeadline: ((error: Error) => void) | undefined;
     let expired = false;
+    let cancelled = false;
     const deadline = new Promise<never>((_, reject) => { rejectDeadline = reject; });
-    const abortHandler = () => rejectDeadline?.(new Error("Browser mission cancelled"));
+    const abortHandler = () => { cancelled = true; rejectDeadline?.(new Error("Browser mission cancelled")); void context?.close(); };
 
     try {
       if (signal?.aborted) throw new Error("Browser mission cancelled");
@@ -176,6 +180,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
           await Promise.race([executeStep(page, step, evidence), deadline]);
         } catch (error) {
           if (expired) throw new Error("Browser mission exceeded its hard deadline");
+          if (cancelled) throw new Error("Browser mission cancelled");
           throw error;
         }
       }

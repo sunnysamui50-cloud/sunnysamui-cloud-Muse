@@ -8,8 +8,9 @@ const ScreenshotStep = StepBase.extend({ type: z.literal("screenshot"), fullPage
 const ClickTarget = z.object({
   role: z.enum(["button", "link", "textbox", "heading", "checkbox", "combobox"]).optional(),
   name: z.string().trim().min(1).max(200).optional(),
-  text: z.string().trim().min(1).max(200).optional()
-}).strict().refine((value) => Boolean(value.name ?? value.text), "Click target requires name or text");
+  text: z.string().trim().min(1).max(200).optional(),
+  selector: z.string().trim().min(1).max(300).optional()
+}).strict().refine((value) => Boolean(value.name ?? value.text ?? value.selector), "Click target requires name or text");
 const ClickStep = StepBase.extend({ type: z.literal("click"), target: ClickTarget });
 const TypeTarget = z.object({
   label: z.string().trim().min(1).max(200).optional(),
