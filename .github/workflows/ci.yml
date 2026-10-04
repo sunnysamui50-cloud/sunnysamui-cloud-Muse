@@ -34,4 +34,5 @@ jobs:
         run: docker build --file Dockerfile.browser --tag muse-browser-worker:test .
       - name: Real browser TDD
         run: |
-          docker run --rm --network host             -e MUSE_LIVE_BROWSER_E2E=1             -v "$PWD:/app" -w /app             mcr.microsoft.com/playwright:v1.63.0-noble             node --import tsx --test test/browser-*.test.ts
+          docker run --rm --network host             -e MUSE_LIVE_BROWSER_E2E=1 \
+            -e MUSE_BROWSER_TEST=1             -v "$PWD:/app" -w /app             mcr.microsoft.com/playwright:v1.63.0-noble             node --import tsx --test test/browser-*.test.ts

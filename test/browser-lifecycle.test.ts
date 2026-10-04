@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { PlaywrightBrowserExecutor } from "../src/browser-executor.js";
 import { BrowserMissionSchema } from "../src/browser-schemas.js";
 
-test("browser executor enforces the hard mission deadline", async () => {
+test("browser executor enforces the hard mission deadline", { skip: process.env.MUSE_BROWSER_TEST !== "1" }, async () => {
   const mission = BrowserMissionSchema.parse({
     maxDurationMs: 5000,
     steps: [{ type: "wait", milliseconds: 10000 }]
@@ -13,7 +13,7 @@ test("browser executor enforces the hard mission deadline", async () => {
   assert.ok(Date.now() - started < 8000, "deadline must terminate the mission promptly");
 });
 
-test("browser executor honours caller cancellation", async () => {
+test("browser executor honours caller cancellation", { skip: process.env.MUSE_BROWSER_TEST !== "1" }, async () => {
   const controller = new AbortController();
   const mission = BrowserMissionSchema.parse({
     maxDurationMs: 30000,
