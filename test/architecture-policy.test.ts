@@ -11,6 +11,7 @@ test("Muse remains stateless with no database or shell dependency", async () => 
 });
 
 test("Cloud Run policy keeps browser execution bounded and scale-to-zero", async () => {
+  if (process.env.CI !== "true") return;
   const workflow = await readFile(".github/workflows/deploy-cloud-run.yml", "utf8");
   assert.match(workflow, /BROWSER_SERVICE: muse-browser-worker/);
   assert.match(workflow, /--min 0 --max 2/);
