@@ -24,3 +24,19 @@ test("browser executor honours caller cancellation", { skip: process.env.MUSE_BR
   try { await new PlaywrightBrowserExecutor().run(mission, controller.signal); assert.fail("mission unexpectedly succeeded"); } catch (error) { assert.match(error instanceof Error ? error.message : String(error), /cancelled/i); }
   assert.ok(Date.now() - started < 3000, "caller cancellation must terminate promptly");
 });
+
+
+test("browser executor enforces the caller interaction budget", { skip: process.env.MUSE_BROWSER_TEST !== "1" }, async () => {
+  const mission = BrowserMissionSchema.parse({
+    maxDurationMs: 30000,
+    maxInteractions: 1,
+    steps: [
+      { type: "wait", milliseconds: 100 },
+      { type: "wait", milliseconds: 100 }
+    ]
+  });
+  await assert.rejects(
+    () => new PlaywrightBrowserExecutor().run(mission),
+    /interaction budget/i
+  );
+});
