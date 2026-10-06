@@ -39,7 +39,7 @@ test("browser mission requires explicit execution budgets", () => {
       { type: "navigate", url: "https://www.wikipedia.org/" },
       { type: "snapshot" },
       { type: "screenshot" },
-      { type: "assert", titleContains: "Wikipedia" }
+      { type: "assert", criterionIndex: 0, titleContains: "Wikipedia" }
     ],
     maxDurationMs: 60000,
     maxInteractions: 20
