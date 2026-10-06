@@ -90,7 +90,7 @@ function getTarget(page: Page, target: { role?: string | undefined; name?: strin
   return page.getByText(target.text!, { exact: true });
 }
 
-async function executeStep(page: Page, step: BrowserStep, evidence: BrowserEvidence[]): Promise<Page> {
+async function executeStep(page: Page, step: BrowserStep, evidence: BrowserEvidence[], provenCriteria: Set<number>): Promise<Page> {
   const timeout = step.timeoutMs ?? 10000;
   page.setDefaultTimeout(timeout);
   switch (step.type) {
@@ -209,7 +209,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
         }
         interactionsUsed += 1;
         try {
-          await Promise.race([executeStep(page, step, evidence), deadline]);
+          await Promise.race([executeStep(page, step, evidence, provenCriteria), deadline]);
         } catch (error) {
           if (expired) {
             exhausted = "time"; status = "UNPROVEN";
