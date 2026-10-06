@@ -9,8 +9,10 @@ const app = express();
 app.disable("x-powered-by");
 app.use(express.json({ limit: "5mb" }));
 
+const authMode = process.env.BROWSER_WORKER_AUTH_MODE ?? "bearer";
+if (authMode !== "bearer" && authMode !== "iam") throw new Error("BROWSER_WORKER_AUTH_MODE must be bearer or iam");
 const token = process.env.BROWSER_WORKER_TOKEN;
-if (!token || token.length < 32) throw new Error("BROWSER_WORKER_TOKEN must be at least 32 characters");
+if (authMode === "bearer" && (!token || token.length < 32)) throw new Error("BROWSER_WORKER_TOKEN must be at least 32 characters in bearer mode");
 const port = Number(process.env.PORT ?? 8080);
 const executor = new PlaywrightBrowserExecutor();
 
@@ -23,7 +25,7 @@ app.post("/v1/browser/missions", async (req, res) => {
     ? req.headers["x-request-id"] : randomUUID();
 
   runWithRequestId(requestId, async () => {
-    if (!isAuthorized(req.headers, token)) {
+    if (authMode === "bearer" && !isAuthorized(req.headers, token!)) {
       audit("browser_request", { outcome: "unauthorized" });
       res.status(401).json({ error: "UNAUTHORIZED", message: "Missing or invalid bearer token" });
       return;
