@@ -1,32 +1,23 @@
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import { promises as dns } from "node:dns";
 import { isIP } from "node:net";
-import type { BrowserMission, BrowserStep } from "./browser-schemas.js";
+import type { BrowserMission, BrowserStep, BrowserMissionResult, BrowserEvidence, BrowserFinding } from "./browser-schemas.js";
 
 const MAX_SCREENSHOT_BYTES = 1_500_000;
 const DNS_LOOKUP_TIMEOUT_MS = 2000;
 
-export type BrowserEvidence =
-  | { type: "navigation"; url: string; title: string }
-  | { type: "snapshot"; url: string; text: string }
-  | { type: "screenshot"; url: string; mimeType: "image/jpeg"; data: string }
-  | { type: "action"; action: string; url: string };
+export type { BrowserEvidence };
 
 export interface BrowserExecutor {
-  run(mission: BrowserMission): Promise<{
-    ok: true;
-    finalUrl: string;
-    title: string;
-    evidence: BrowserEvidence[];
-  }>;
+  run(mission: BrowserMission, signal?: AbortSignal): Promise<BrowserMissionResult>;
 }
 
 function isPrivateIpv4(ip: string): boolean {
   const parts = ip.split(".").map(Number);
   if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part))) return false;
-  const [a, b] = parts as [number, number, number, number];
+  const [a, b] = parts as [number, number];
   return a === 0 || a === 10 || a === 127 ||
-    (a === 100 && b! >= 64 && b! <= 127) ||
+    (a === 100 && b >= 64 && b <= 127) ||
     (a === 169 && b === 254) ||
     (a === 172 && b >= 16 && b <= 31) ||
     (a === 192 && b === 0) ||
@@ -40,14 +31,10 @@ function isPrivateIp(ip: string): boolean {
     const normalized = ip.toLowerCase();
     const mappedIpv4 = normalized.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
     if (mappedIpv4 && isPrivateIpv4(mappedIpv4[1]!)) return true;
-    return normalized === "::1" ||
-      normalized === "::" ||
-      normalized.startsWith("fc") ||
-      normalized.startsWith("fd") ||
-      normalized.startsWith("fe8") ||
-      normalized.startsWith("fe9") ||
-      normalized.startsWith("fea") ||
-      normalized.startsWith("feb") ||
+    return normalized === "::1" || normalized === "::" ||
+      normalized.startsWith("fc") || normalized.startsWith("fd") ||
+      normalized.startsWith("fe8") || normalized.startsWith("fe9") ||
+      normalized.startsWith("fea") || normalized.startsWith("feb") ||
       normalized.startsWith("ff");
   }
   return false;
@@ -58,38 +45,26 @@ export async function assertPublicHttpsUrl(rawUrl: string): Promise<URL> {
   if (url.protocol !== "https:") throw new Error("Browser navigation is restricted to HTTPS");
   if (url.username || url.password) throw new Error("Browser navigation URLs must not contain credentials");
   if (url.port && url.port !== "443") throw new Error("Browser navigation is restricted to HTTPS port 443");
-
   const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
-  if (
-    hostname === "localhost" ||
-    hostname === "metadata.google.internal" ||
-    hostname.endsWith(".internal") ||
-    hostname === "host.docker.internal"
-  ) throw new Error("Browser navigation to internal hosts is blocked");
-
-  if (isIP(hostname) && isPrivateIp(hostname)) {
-    throw new Error("Browser navigation to private IP addresses is blocked");
+  if (hostname === "localhost" || hostname === "metadata.google.internal" || hostname.endsWith(".internal") || hostname === "host.docker.internal") {
+    throw new Error("Browser navigation to internal hosts is blocked");
   }
-
+  if (isIP(hostname) && isPrivateIp(hostname)) throw new Error("Browser navigation to private IP addresses is blocked");
   if (!isIP(hostname)) {
     const addresses = await Promise.race([
       dns.lookup(hostname, { all: true }),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Browser DNS lookup timed out")), DNS_LOOKUP_TIMEOUT_MS))
     ]);
-    if (addresses.some(({ address }) => isPrivateIp(address))) {
-      throw new Error("Browser navigation to a host resolving to a private IP is blocked");
-    }
+    if (addresses.some(({ address }) => isPrivateIp(address))) throw new Error("Browser navigation to a host resolving to a private IP is blocked");
   }
   return url;
 }
 
-function getTarget(page: Page, target: { role?: string | undefined; name?: string | undefined; text?: string | undefined; selector?: string | undefined }) {
+function getTarget(page: Page, target: { role?: string; name?: string; text?: string; selector?: string }) {
   if (target.selector) return page.locator(target.selector);
-  if (target.name) {
-    return target.role
-      ? page.getByRole(target.role as Parameters<Page["getByRole"]>[0], { name: target.name })
-      : page.getByText(target.name, { exact: true });
-  }
+  if (target.name) return target.role
+    ? page.getByRole(target.role as Parameters<Page["getByRole"]>[0], { name: target.name })
+    : page.getByText(target.name, { exact: true });
   return page.getByText(target.text!, { exact: true });
 }
 
@@ -102,11 +77,9 @@ async function executeStep(page: Page, step: BrowserStep, evidence: BrowserEvide
       await page.goto(step.url, { waitUntil: "domcontentloaded", timeout });
       evidence.push({ type: "navigation", url: page.url(), title: await page.title() });
       return page;
-    case "snapshot": {
-      const text = (await page.locator("body").innerText({ timeout })).slice(0, step.maxChars);
-      evidence.push({ type: "snapshot", url: page.url(), text });
+    case "snapshot":
+      evidence.push({ type: "snapshot", url: page.url(), text: (await page.locator("body").innerText({ timeout })).slice(0, step.maxChars) });
       return page;
-    }
     case "screenshot": {
       const buffer = await page.screenshot({ type: "jpeg", quality: 60, fullPage: step.fullPage, timeout });
       if (buffer.byteLength > MAX_SCREENSHOT_BYTES) throw new Error("Screenshot exceeds the 1.5 MB evidence limit");
@@ -120,13 +93,10 @@ async function executeStep(page: Page, step: BrowserStep, evidence: BrowserEvide
       return page;
     }
     case "type": {
-      const locator = step.target.selector
-        ? page.locator(step.target.selector)
-        : step.target.label
-          ? page.getByLabel(step.target.label)
-          : step.target.placeholder
-            ? page.getByPlaceholder(step.target.placeholder)
-            : page.getByRole("textbox", { name: step.target.name! });
+      const locator = step.target.selector ? page.locator(step.target.selector)
+        : step.target.label ? page.getByLabel(step.target.label)
+        : step.target.placeholder ? page.getByPlaceholder(step.target.placeholder)
+        : page.getByRole("textbox", { name: step.target.name! });
       await locator.fill(step.text, { timeout });
       if (step.submit) await locator.press("Enter", { timeout });
       evidence.push({ type: "action", action: "type", url: page.url() });
@@ -141,23 +111,34 @@ async function executeStep(page: Page, step: BrowserStep, evidence: BrowserEvide
       const failures: string[] = [];
       if (step.urlContains && !page.url().includes(step.urlContains)) failures.push(`url does not contain "${step.urlContains}"`);
       if (step.titleContains && !(await page.title()).includes(step.titleContains)) failures.push(`title does not contain "${step.titleContains}"`);
-      if (step.textContains) {
-        const body = await page.locator("body").innerText({ timeout });
-        if (!body.includes(step.textContains)) failures.push(`page text does not contain "${step.textContains}"`);
-      }
-      if (failures.length > 0) throw new Error(`Browser assertion failed: ${failures.join("; ")}`);
-      evidence.push({
-        type: "action",
-        action: "assert:" + [step.urlContains, step.titleContains, step.textContains].filter(Boolean).join("|"),
-        url: page.url()
-      });
+      if (step.textContains && !(await page.locator("body").innerText({ timeout })).includes(step.textContains)) failures.push(`page text does not contain "${step.textContains}"`);
+      if (failures.length) throw new Error(`Browser assertion failed: ${failures.join("; ")}`);
+      evidence.push({ type: "action", action: "assert:" + [step.urlContains, step.titleContains, step.textContains].filter(Boolean).join("|"), url: page.url() });
       return page;
     }
   }
 }
 
+function classifyFailure(error: unknown): { status: "BLOCKED" | "UNPROVEN"; finding: BrowserFinding } {
+  const message = error instanceof Error ? error.message : "Browser mission failed";
+  if (/hard deadline|timed out|timeout/i.test(message)) {
+    return { status: "UNPROVEN", finding: { severity: "error", kind: "timeout", message } };
+  }
+  if (/interaction budget/i.test(message)) {
+    return { status: "UNPROVEN", finding: { severity: "error", kind: "interaction_budget", message } };
+  }
+  if (/cancelled/i.test(message)) {
+    return { status: "UNPROVEN", finding: { severity: "warning", kind: "cancelled", message } };
+  }
+  if (/restricted|blocked|private IP|credentials/i.test(message)) {
+    return { status: "BLOCKED", finding: { severity: "error", kind: "target_blocked", message } };
+  }
+  return { status: "BLOCKED", finding: { severity: "error", kind: "browser", message } };
+}
+
 export class PlaywrightBrowserExecutor implements BrowserExecutor {
-  async run(mission: BrowserMission, signal?: AbortSignal) {
+  async run(mission: BrowserMission, signal?: AbortSignal): Promise<BrowserMissionResult> {
+    const started = Date.now();
     let browser: Browser | undefined;
     let context: BrowserContext | undefined;
     let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
@@ -166,55 +147,99 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
     let cancelled = false;
     const deadline = new Promise<never>((_, reject) => { rejectDeadline = reject; });
     const abortHandler = () => { cancelled = true; rejectDeadline?.(new Error("Browser mission cancelled")); };
+    const evidence: BrowserEvidence[] = [];
+    const findings: BrowserFinding[] = [];
+    let interactionsUsed = 0;
+    let status: BrowserMissionResult["status"] = "PASS";
+    let exhausted: "time" | "interactions" | undefined;
 
     try {
       if (signal?.aborted) throw new Error("Browser mission cancelled");
-      deadlineTimer = setTimeout(() => {
-        expired = true;
-        rejectDeadline?.(new Error("Browser mission exceeded its hard deadline"));
-      }, mission.maxDurationMs);
+      deadlineTimer = setTimeout(() => { expired = true; rejectDeadline?.(new Error("Browser mission exceeded its hard deadline")); }, mission.maxDurationMs);
       signal?.addEventListener("abort", abortHandler, { once: true });
       browser = await chromium.launch({ headless: true, chromiumSandbox: typeof process.getuid === "function" ? process.getuid() !== 0 : true });
-      context = await browser.newContext({
-        serviceWorkers: "block",
-        ignoreHTTPSErrors: false,
-        viewport: { width: 1440, height: 900 }
-      });
-
+      context = await browser.newContext({ serviceWorkers: "block", ignoreHTTPSErrors: false, viewport: { width: 1440, height: 900 } });
       await context.route("**/*", async (route) => {
-        try {
-          await assertPublicHttpsUrl(route.request().url());
-          await route.continue();
-        } catch {
-          await route.abort("blockedbyclient");
-        }
+        try { await assertPublicHttpsUrl(route.request().url()); await route.continue(); }
+        catch { await route.abort("blockedbyclient"); }
       });
-
       const page = await context.newPage();
-      const evidence: BrowserEvidence[] = [];
 
-      let interactions = 0;
-      for (const step of mission.steps) {
-        if (expired) throw new Error("Browser mission exceeded its hard deadline");
-        if (interactions >= mission.maxInteractions) {
-          throw new Error("Browser mission exceeded its interaction budget");
+      for (let index = 0; index < mission.steps.length; index += 1) {
+        const step = mission.steps[index]!;
+        if (expired) { exhausted = "time"; status = "UNPROVEN"; findings.push({ severity: "error", kind: "timeout", message: "Browser mission exceeded its hard deadline", stepIndex: index }); break; }
+        if (interactionsUsed >= mission.maxInteractions) {
+          exhausted = "interactions";
+          status = "UNPROVEN";
+          findings.push({ severity: "error", kind: "interaction_budget", message: "Browser mission exceeded its interaction budget", stepIndex: index });
+          break;
         }
-        interactions += 1;
+        interactionsUsed += 1;
         try {
           await Promise.race([executeStep(page, step, evidence), deadline]);
         } catch (error) {
-          if (expired) throw new Error("Browser mission exceeded its hard deadline");
-          if (cancelled) throw new Error("Browser mission cancelled");
-          throw error;
+          if (expired) {
+            exhausted = "time"; status = "UNPROVEN";
+            findings.push({ severity: "error", kind: "timeout", message: "Browser mission exceeded its hard deadline", stepIndex: index });
+            break;
+          }
+          if (cancelled) {
+            status = "UNPROVEN";
+            findings.push({ severity: "warning", kind: "cancelled", message: "Browser mission cancelled", stepIndex: index });
+            break;
+          }
+          if (step.type === "assert" && error instanceof Error && /^Browser assertion failed:/.test(error.message)) {
+            status = "FAIL";
+            findings.push({ severity: "error", kind: "assertion", message: error.message.replace(/^Browser assertion failed:\s*/, ""), stepIndex: index });
+            continue;
+          }
+          const classified = classifyFailure(error);
+          status = classified.status;
+          findings.push({ ...classified.finding, stepIndex: index });
+          break;
         }
       }
 
-      if (expired) throw new Error("Browser mission exceeded its hard deadline");
-      return { ok: true as const, finalUrl: page.url(), title: await page.title(), evidence };
+      const finalUrl = page.url();
+      const title = await page.title();
+      if (status === "PASS" && findings.length === 0) status = "PASS";
+      return {
+        ok: true,
+        status,
+        objective: mission.objective,
+        acceptanceCriteria: mission.acceptanceCriteria,
+        finalUrl,
+        title,
+        evidence,
+        findings,
+        budget: {
+          maxDurationMs: mission.maxDurationMs,
+          maxInteractions: mission.maxInteractions,
+          interactionsUsed,
+          durationMs: Date.now() - started,
+          ...(exhausted ? { exhausted } : {})
+        }
+      };
     } catch (error) {
-      if (expired) throw new Error("Browser mission exceeded its hard deadline");
-      if (cancelled) throw new Error("Browser mission cancelled");
-      throw error;
+      const classified = classifyFailure(error);
+      findings.push(classified.finding);
+      return {
+        ok: true,
+        status: classified.status,
+        objective: mission.objective,
+        acceptanceCriteria: mission.acceptanceCriteria,
+        finalUrl: "https://muse.invalid/blocked",
+        title: "Mission did not reach a browser page",
+        evidence,
+        findings,
+        budget: {
+          maxDurationMs: mission.maxDurationMs,
+          maxInteractions: mission.maxInteractions,
+          interactionsUsed,
+          durationMs: Date.now() - started,
+          ...(classified.status === "UNPROVEN" && /budget|deadline|timeout/i.test(classified.finding.message) ? { exhausted: /interaction/i.test(classified.finding.message) ? "interactions" : "time" } : {})
+        }
+      };
     } finally {
       if (deadlineTimer) clearTimeout(deadlineTimer);
       signal?.removeEventListener("abort", abortHandler);
