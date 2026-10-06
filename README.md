@@ -83,9 +83,12 @@ The deployed MCP endpoint is printed by the workflow.
 13. Cloud Run health green
 14. live HTTPS MCP verified
 15. no secret in repository history
+16. browser mission returns PASS / FAIL / BLOCKED / UNPROVEN with structured findings
+17. browser mission diagnosis identifies the next diagnostic action
+18. reproducible `npm ci` build with committed package-lock.json
 
 The deployment workflow automatically performs the live MCP handshake/tool-boundary/auth checks and browser-worker health check.
 
 ## Current status
 
-Live deployment is not claimed until GCP Workload Identity, runtime secrets, upstream API contracts and live verification are available.
+Muse is in the pre-deployment hardening checkpoint. The browser mission path has caller-controlled time and interaction budgets, structured outcomes, evidence, and first-pass diagnosis. Live deployment is not claimed until GCP Workload Identity, runtime secrets, upstream API contracts, reproducible dependency installation and live verification are available.
