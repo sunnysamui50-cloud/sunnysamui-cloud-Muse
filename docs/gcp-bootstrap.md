@@ -168,7 +168,7 @@ The two tokens are Google Secret Manager secrets, not GitHub variables.
 
 The repository intentionally uses manual deployment while the system is being hardened.
 
-The deployment uses `muse-runtime` as the Cloud Run runtime identity for both services. The browser worker currently authenticates the Muse gateway with the dedicated `MUSE_BROWSER_WORKER_TOKEN`; it does not receive the application API token or MCP bearer token.
+The deployment uses `muse-runtime` as the Cloud Run runtime identity for both services. The browser worker is private to Cloud Run and grants `roles/run.invoker` only to `muse-runtime`. Muse obtains a short-lived identity token from the Cloud Run metadata server and calls the worker over HTTPS. The browser worker does not receive the application API token or MCP bearer token.
 
 Run:
 
