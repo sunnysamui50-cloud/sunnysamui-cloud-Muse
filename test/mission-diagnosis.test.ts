@@ -24,3 +24,12 @@ test("diagnosis distinguishes unproven budget exhaustion", () => {
   assert.match(result.summary, /interaction budget/i);
   assert.match(result.nextAction, /budget/i);
 });
+
+
+test("diagnosis explains unverified assertion-free missions", () => {
+  const result = diagnoseBrowserMission("UNPROVEN", [{
+    severity: "warning", kind: "unverified", message: "no executable assertion"
+  }]);
+  assert.match(result.summary, /not machine-verified/i);
+  assert.match(result.nextAction, /explicit assert/i);
+});
