@@ -11,7 +11,7 @@ test("failed browser assertion is a mission FAIL, not a transport error", { skip
     maxInteractions: 3,
     steps: [
       { type: "navigate", url: "https://example.com/" },
-      { type: "assert", textContains: "this text definitely cannot be present" },
+      { type: "assert", criterionIndex: 0, textContains: "this text definitely cannot be present" },
       { type: "snapshot" }
     ]
   });
