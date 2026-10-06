@@ -32,6 +32,21 @@ function isPrivateIp(ip: string): boolean {
     const normalized = ip.toLowerCase();
     const mappedIpv4 = normalized.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
     if (mappedIpv4 && isPrivateIpv4(mappedIpv4[1]!)) return true;
+    if (normalized.startsWith("::ffff:")) {
+      const tail = normalized.slice("::ffff:".length);
+      const groups = tail.split(":");
+      if (groups.length === 2 && groups.every((group) => /^[0-9a-f]{1,4}$/.test(group))) {
+        const high = Number.parseInt(groups[0]!, 16);
+        const low = Number.parseInt(groups[1]!, 16);
+        const dotted = [
+          high >> 8,
+          high & 255,
+          low >> 8,
+          low & 255
+        ].join(".");
+        if (isPrivateIpv4(dotted)) return true;
+      }
+    }
     return normalized === "::1" || normalized === "::" ||
       normalized.startsWith("fc") || normalized.startsWith("fd") ||
       normalized.startsWith("fe8") || normalized.startsWith("fe9") ||
