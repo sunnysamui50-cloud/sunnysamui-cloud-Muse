@@ -56,23 +56,29 @@ function isPrivateIp(ip: string): boolean {
   return false;
 }
 
-export async function assertPublicHttpsUrl(rawUrl: string): Promise<URL> {
+async function assertPublicNetworkUrl(rawUrl: string): Promise<URL> {
   const url = new URL(rawUrl);
-  if (url.protocol !== "https:") throw new Error("Browser navigation is restricted to HTTPS");
-  if (url.username || url.password) throw new Error("Browser navigation URLs must not contain credentials");
-  if (url.port && url.port !== "443") throw new Error("Browser navigation is restricted to HTTPS port 443");
+  if (url.protocol !== "https:" && url.protocol !== "wss:") throw new Error("Browser network access is restricted to HTTPS/WSS");
+  if (url.username || url.password) throw new Error("Browser network URLs must not contain credentials");
+  if (url.port && url.port !== "443") throw new Error("Browser network access is restricted to port 443");
   const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
   if (hostname === "localhost" || hostname === "metadata.google.internal" || hostname.endsWith(".internal") || hostname === "host.docker.internal") {
-    throw new Error("Browser navigation to internal hosts is blocked");
+    throw new Error("Browser network access to internal hosts is blocked");
   }
-  if (isIP(hostname) && isPrivateIp(hostname)) throw new Error("Browser navigation to private IP addresses is blocked");
+  if (isIP(hostname) && isPrivateIp(hostname)) throw new Error("Browser network access to private IP addresses is blocked");
   if (!isIP(hostname)) {
     const addresses = await Promise.race([
       dns.lookup(hostname, { all: true }),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Browser DNS lookup timed out")), DNS_LOOKUP_TIMEOUT_MS))
     ]);
-    if (addresses.some(({ address }) => isPrivateIp(address))) throw new Error("Browser navigation to a host resolving to a private IP is blocked");
+    if (addresses.some(({ address }) => isPrivateIp(address))) throw new Error("Browser network access to a host resolving to a private IP is blocked");
   }
+  return url;
+}
+
+export async function assertPublicHttpsUrl(rawUrl: string): Promise<URL> {
+  const url = await assertPublicNetworkUrl(rawUrl);
+  if (url.protocol !== "https:") throw new Error("Browser navigation is restricted to HTTPS");
   return url;
 }
 
@@ -177,8 +183,16 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
       browser = await chromium.launch({ headless: true, chromiumSandbox: typeof process.getuid === "function" ? process.getuid() !== 0 : true });
       context = await browser.newContext({ serviceWorkers: "block", ignoreHTTPSErrors: false, viewport: { width: 1440, height: 900 } });
       await context.route("**/*", async (route) => {
-        try { await assertPublicHttpsUrl(route.request().url()); await route.continue(); }
+        try { await assertPublicNetworkUrl(route.request().url()); await route.continue(); }
         catch { await route.abort("blockedbyclient"); }
+      });
+      await context.routeWebSocket("**/*", async (webSocket) => {
+        try {
+          await assertPublicNetworkUrl(webSocket.url());
+          await webSocket.connect();
+        } catch {
+          await webSocket.close({ code: 1008, reason: "Blocked by Muse network policy" });
+        }
       });
       const page = await context.newPage();
 
