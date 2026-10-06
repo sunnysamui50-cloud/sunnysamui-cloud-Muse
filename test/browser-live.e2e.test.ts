@@ -25,7 +25,9 @@ test("REAL browser mission reaches an external site, types, clicks, reads and ca
 
   const result = await new PlaywrightBrowserExecutor().run(mission);
   assert.equal(result.ok, true);
-  assert.match(result.finalUrl, /wikipedia\.org/);
+  const finalUrl = result.finalUrl;
+  assert.ok(finalUrl);
+  assert.match(finalUrl, /wikipedia\.org/);
   assert.ok(result.evidence.filter((item) => item.type === "screenshot").length === 2);
   const snapshots = result.evidence.filter((item) => item.type === "snapshot").map((item) => item.text).join("\n");
   assert.match(snapshots, /Koh Samui/i);
