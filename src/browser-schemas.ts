@@ -30,19 +30,17 @@ const AssertStep = StepBase.extend({
   urlContains: z.string().trim().min(1).max(200).optional(),
   titleContains: z.string().trim().min(1).max(200).optional(),
   textContains: z.string().trim().min(1).max(500).optional()
-}).refine(
-  (value) => Boolean(value.urlContains ?? value.titleContains ?? value.textContains),
-  "Assert requires urlContains, titleContains, or textContains"
-);
+}).refine((value) => Boolean(value.urlContains ?? value.titleContains ?? value.textContains), "Assert requires urlContains, titleContains, or textContains");
 
 export const BrowserStepSchema = z.discriminatedUnion("type", [NavigateStep, SnapshotStep, ScreenshotStep, ClickStep, TypeStep, WaitStep, AssertStep]);
 
-/**
- * A live mission is governed by the budget supplied by the caller.
- * maxInteractions counts executable browser steps, including evidence and assertion steps.
- * There is deliberately no small product-level step or screenshot ceiling.
- */
-const MissionPlanSchema = z.object({ summary: z.string().trim().min(1).max(2000), phases: z.array(z.object({ name: z.string().trim().min(1).max(200), purpose: z.string().trim().min(1).max(1000) }).strict()).min(1) }).strict();
+const MissionPlanSchema = z.object({
+  summary: z.string().trim().min(1).max(2000),
+  phases: z.array(z.object({
+    name: z.string().trim().min(1).max(200),
+    purpose: z.string().trim().min(1).max(1000)
+  }).strict()).min(1)
+}).strict();
 
 export const BrowserMissionSchema = z.object({
   objective: z.string().trim().min(1).max(5000),
@@ -67,9 +65,30 @@ export const BrowserEvidenceSchema = z.discriminatedUnion("type", [
   NavigationEvidence, SnapshotEvidence, ScreenshotEvidence, ActionEvidence
 ]);
 
+const FindingSchema = z.object({
+  severity: z.enum(["info", "warning", "error"]),
+  kind: z.enum(["assertion", "navigation", "browser", "timeout", "interaction_budget", "target_blocked", "cancelled"]),
+  message: z.string().min(1).max(2000),
+  stepIndex: z.number().int().min(0).optional()
+}).strict();
+
 export const BrowserMissionResultSchema = z.object({
   ok: z.literal(true),
+  status: z.enum(["PASS", "FAIL", "BLOCKED", "UNPROVEN"]),
+  objective: z.string().max(5000),
+  acceptanceCriteria: z.array(z.string().min(1).max(1000)).min(1).max(100),
   finalUrl: z.string().url(),
   title: z.string().max(500),
-  evidence: z.array(BrowserEvidenceSchema)
+  evidence: z.array(BrowserEvidenceSchema),
+  findings: z.array(FindingSchema),
+  budget: z.object({
+    maxDurationMs: z.number().int().min(1000),
+    maxInteractions: z.number().int().min(1),
+    interactionsUsed: z.number().int().min(0),
+    durationMs: z.number().int().min(0),
+    exhausted: z.enum(["time", "interactions"]).optional()
+  }).strict()
 }).strict();
+
+export type BrowserMissionResult = z.infer<typeof BrowserMissionResultSchema>;
+export type BrowserFinding = z.infer<typeof FindingSchema>;
