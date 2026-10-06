@@ -32,7 +32,7 @@ jobs:
         with:
           node-version: 22
       - name: Install verifier dependencies
-        run: npm install --ignore-scripts
+        run: npm ci --ignore-scripts
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
       - name: Configure Docker for Artifact Registry
