@@ -228,7 +228,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
         status: classified.status,
         objective: mission.objective,
         acceptanceCriteria: mission.acceptanceCriteria,
-        finalUrl: "https://muse.invalid/blocked",
+        finalUrl: null,
         title: "Mission did not reach a browser page",
         evidence,
         findings,
