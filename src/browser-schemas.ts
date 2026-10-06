@@ -25,8 +25,17 @@ const WaitStep = StepBase.extend({
   milliseconds: z.number().int().min(100).max(10000).optional(),
   text: z.string().trim().min(1).max(200).optional()
 }).refine((value) => Boolean(value.milliseconds ?? value.text), "Wait requires milliseconds or text");
+const AssertStep = StepBase.extend({
+  type: z.literal("assert"),
+  urlContains: z.string().trim().min(1).max(200).optional(),
+  titleContains: z.string().trim().min(1).max(200).optional(),
+  textContains: z.string().trim().min(1).max(500).optional()
+}).refine(
+  (value) => Boolean(value.urlContains ?? value.titleContains ?? value.textContains),
+  "Assert requires urlContains, titleContains, or textContains"
+);
 
-export const BrowserStepSchema = z.discriminatedUnion("type", [NavigateStep, SnapshotStep, ScreenshotStep, ClickStep, TypeStep, WaitStep]);
+export const BrowserStepSchema = z.discriminatedUnion("type", [NavigateStep, SnapshotStep, ScreenshotStep, ClickStep, TypeStep, WaitStep, AssertStep]);
 export const BrowserMissionSchema = z.object({
   steps: z.array(BrowserStepSchema).min(1).max(12),
   maxDurationMs: z.number().int().min(5000).max(90000).default(60000)
