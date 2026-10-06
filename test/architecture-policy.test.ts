@@ -17,7 +17,7 @@ test("Cloud Run policy keeps browser execution bounded and scale-to-zero", async
   assert.match(workflow, /--min 0 --max 2/);
   assert.match(workflow, /--memory 1Gi/);
   assert.match(workflow, /--concurrency 1/);
-  assert.match(workflow, /--timeout 120s/);
+  assert.match(workflow, /--timeout 3600s/);
   assert.match(workflow, /MUSE_SERVICE: muse-mcp/);
   assert.match(workflow, /--memory 512Mi/);
   assert.match(workflow, /--concurrency 40/);
