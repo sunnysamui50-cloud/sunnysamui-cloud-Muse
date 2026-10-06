@@ -138,7 +138,6 @@ async function executeStep(page: Page, step: BrowserStep, evidence: BrowserEvide
       provenCriteria.add(step.criterionIndex);
       evidence.push({ type: "action", action: `assert[criterion:${step.criterionIndex}]:` + [step.urlContains, step.titleContains, step.textContains].filter(Boolean).join("|"), url: page.url() });
       return page;
-      return page;
     }
   }
 }
