@@ -3,23 +3,41 @@ import assert from "node:assert/strict";
 import { assertPublicHttpsUrl } from "../src/browser-executor.js";
 import { BrowserMissionSchema } from "../src/browser-schemas.js";
 
-test("browser missions reject unsafe and oversized input", () => {
-  assert.equal(BrowserMissionSchema.safeParse({ steps: [{ type: "navigate", url: "http://example.com" }] }).success, false);
-  assert.equal(BrowserMissionSchema.safeParse({ steps: Array.from({ length: 13 }, () => ({ type: "wait", milliseconds: 100 })) }).success, false);
-  assert.equal(BrowserMissionSchema.safeParse({ steps: [{ type: "screenshot" }, { type: "screenshot" }, { type: "screenshot" }, { type: "screenshot" }] }).success, false);
-  assert.equal(BrowserMissionSchema.safeParse({ steps: [{ type: "assert" }] }).success, false);
+test("browser missions reject unsafe input but accept large caller-budgeted missions", () => {
+  assert.equal(BrowserMissionSchema.safeParse({
+    steps: [{ type: "navigate", url: "http://example.com" }],
+    maxDurationMs: 60000,
+    maxInteractions: 100
+  }).success, false);
+
+  const largeMission = BrowserMissionSchema.safeParse({
+    steps: [
+      ...Array.from({ length: 20 }, () => ({ type: "wait", milliseconds: 100 })),
+      ...Array.from({ length: 4 }, () => ({ type: "screenshot" }))
+    ],
+    maxDurationMs: 300000,
+    maxInteractions: 500
+  });
+  assert.equal(largeMission.success, true);
 });
 
-test("browser mission applies bounded defaults", () => {
+test("browser mission requires explicit execution budgets", () => {
+  assert.equal(BrowserMissionSchema.safeParse({
+    steps: [{ type: "wait", milliseconds: 100 }]
+  }).success, false);
+
   const mission = BrowserMissionSchema.parse({
     steps: [
       { type: "navigate", url: "https://www.wikipedia.org/" },
       { type: "snapshot" },
       { type: "screenshot" },
       { type: "assert", titleContains: "Wikipedia" }
-    ]
+    ],
+    maxDurationMs: 60000,
+    maxInteractions: 20
   });
   assert.equal(mission.maxDurationMs, 60000);
+  assert.equal(mission.maxInteractions, 20);
 });
 
 test("browser target policy blocks credentialed, non-443, and IPv6 private targets", async () => {
