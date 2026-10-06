@@ -42,7 +42,13 @@ export const BrowserStepSchema = z.discriminatedUnion("type", [NavigateStep, Sna
  * maxInteractions counts executable browser steps, including evidence and assertion steps.
  * There is deliberately no small product-level step or screenshot ceiling.
  */
+const MissionPlanSchema = z.object({ summary: z.string().trim().min(1).max(2000), phases: z.array(z.object({ name: z.string().trim().min(1).max(200), purpose: z.string().trim().min(1).max(1000) }).strict()).min(1) }).strict();
+
 export const BrowserMissionSchema = z.object({
+  objective: z.string().trim().min(1).max(5000),
+  instructions: z.string().trim().max(20000).default(""),
+  acceptanceCriteria: z.array(z.string().trim().min(1).max(1000)).min(1).max(100),
+  plan: MissionPlanSchema.optional(),
   steps: z.array(BrowserStepSchema).min(1),
   maxDurationMs: z.number().int().min(1000),
   maxInteractions: z.number().int().min(1)
@@ -50,6 +56,7 @@ export const BrowserMissionSchema = z.object({
 
 export type BrowserMission = z.infer<typeof BrowserMissionSchema>;
 export type BrowserStep = z.infer<typeof BrowserStepSchema>;
+export type BrowserMissionPlan = z.infer<typeof MissionPlanSchema>;
 
 const NavigationEvidence = z.object({ type: z.literal("navigation"), url: z.string().url(), title: z.string().max(500) }).strict();
 const SnapshotEvidence = z.object({ type: z.literal("snapshot"), url: z.string().url(), text: z.string().max(20000) }).strict();
