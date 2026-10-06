@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { assertPublicHttpsUrl } from "../src/browser-executor.js";
 import { BrowserMissionSchema } from "../src/browser-schemas.js";
 
 test("browser missions reject unsafe and oversized input", () => {
@@ -20,4 +21,11 @@ test("browser mission applies bounded defaults", () => {
     ]
   });
   assert.equal(mission.maxDurationMs, 60000);
+});
+
+test("browser target policy blocks credentialed, non-443, and IPv6 private targets", async () => {
+  await assert.rejects(() => assertPublicHttpsUrl("https://user:password@example.com/"), /credentials/);
+  await assert.rejects(() => assertPublicHttpsUrl("https://example.com:8443/"), /port 443/);
+  await assert.rejects(() => assertPublicHttpsUrl("https://[::1]/"), /private IP/);
+  await assert.rejects(() => assertPublicHttpsUrl("https://[::ffff:127.0.0.1]/"), /private IP/);
 });
