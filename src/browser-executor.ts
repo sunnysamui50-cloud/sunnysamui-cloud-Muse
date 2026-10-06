@@ -224,7 +224,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
         status = "UNPROVEN";
         findings.push({
           severity: "warning",
-          kind: "assertion",
+          kind: "unverified",
           message: "Mission completed without an executable browser assertion; acceptance criteria are not machine-verified.",
           recommendedAction: "Add explicit assert steps for the acceptance criteria and rerun the mission."
         });
