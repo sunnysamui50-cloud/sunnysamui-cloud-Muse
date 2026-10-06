@@ -26,6 +26,8 @@ try {
   const browserResult = await client.callTool({
     name: "run_browser_mission",
     arguments: {
+      objective: "Verify external search works",
+      acceptanceCriteria: ["Koh Samui appears in search evidence"],
       maxDurationMs: 45000,
       maxInteractions: 20,
       steps: [
