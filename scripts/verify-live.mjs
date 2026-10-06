@@ -27,6 +27,7 @@ try {
     name: "run_browser_mission",
     arguments: {
       maxDurationMs: 45000,
+      maxInteractions: 20,
       steps: [
         { type: "navigate", url: "https://en.wikipedia.org/wiki/Main_Page" },
         { type: "snapshot" },
