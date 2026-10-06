@@ -67,7 +67,7 @@ export const BrowserEvidenceSchema = z.discriminatedUnion("type", [
 
 const FindingSchema = z.object({
   severity: z.enum(["info", "warning", "error"]),
-  kind: z.enum(["assertion", "navigation", "browser", "timeout", "interaction_budget", "target_blocked", "cancelled"]),
+  kind: z.enum(["assertion", "unverified", "navigation", "browser", "timeout", "interaction_budget", "target_blocked", "cancelled"]),
   message: z.string().min(1).max(2000),
   stepIndex: z.number().int().min(0).optional(),
   probableCause: z.string().max(2000).optional(),
