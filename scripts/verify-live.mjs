@@ -45,6 +45,8 @@ try {
   });
 
   if (browserResult.isError) throw new Error("Live browser mission returned an MCP tool error");
+  const browserText = (browserResult.content ?? []).filter((item) => item.type === "text").map((item) => item.text).join("\n");
+  if (!/\"status\":\"PASS\"/.test(browserText)) throw new Error("Live browser mission did not return PASS status");
   const content = browserResult.content ?? [];
   const textParts = content.filter((item) => item.type === "text").map((item) => item.text).join("\n");
   const images = content.filter((item) => item.type === "image");
