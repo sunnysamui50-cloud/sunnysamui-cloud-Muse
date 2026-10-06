@@ -39,6 +39,8 @@ function isPrivateIp(ip: string): boolean {
   if (isIP(ip) === 4) return isPrivateIpv4(ip);
   if (isIP(ip) === 6) {
     const normalized = ip.toLowerCase();
+    const mappedIpv4 = normalized.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
+    if (mappedIpv4 && isPrivateIpv4(mappedIpv4[1]!)) return true;
     return normalized === "::1" ||
       normalized === "::" ||
       normalized.startsWith("fc") ||
@@ -55,6 +57,8 @@ function isPrivateIp(ip: string): boolean {
 export async function assertPublicHttpsUrl(rawUrl: string): Promise<URL> {
   const url = new URL(rawUrl);
   if (url.protocol !== "https:") throw new Error("Browser navigation is restricted to HTTPS");
+  if (url.username || url.password) throw new Error("Browser navigation URLs must not contain credentials");
+  if (url.port && url.port !== "443") throw new Error("Browser navigation is restricted to HTTPS port 443");
 
   const hostname = url.hostname.toLowerCase().replace(/\.$/, "");
   if (
@@ -156,7 +160,6 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
       deadlineTimer = setTimeout(() => {
         expired = true;
         rejectDeadline?.(new Error("Browser mission exceeded its hard deadline"));
-
       }, mission.maxDurationMs);
       signal?.addEventListener("abort", abortHandler, { once: true });
       browser = await chromium.launch({ headless: true, chromiumSandbox: typeof process.getuid === "function" ? process.getuid() !== 0 : true });
