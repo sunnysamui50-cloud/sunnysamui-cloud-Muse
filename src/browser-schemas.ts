@@ -69,7 +69,9 @@ const FindingSchema = z.object({
   severity: z.enum(["info", "warning", "error"]),
   kind: z.enum(["assertion", "navigation", "browser", "timeout", "interaction_budget", "target_blocked", "cancelled"]),
   message: z.string().min(1).max(2000),
-  stepIndex: z.number().int().min(0).optional()
+  stepIndex: z.number().int().min(0).optional(),
+  probableCause: z.string().max(2000).optional(),
+  recommendedAction: z.string().max(2000).optional()
 }).strict();
 
 export const BrowserMissionResultSchema = z.object({
@@ -81,6 +83,11 @@ export const BrowserMissionResultSchema = z.object({
   title: z.string().max(500),
   evidence: z.array(BrowserEvidenceSchema),
   findings: z.array(FindingSchema),
+  diagnosis: z.object({
+    summary: z.string().max(2000),
+    confidence: z.enum(["low", "medium", "high"]),
+    nextAction: z.string().max(2000)
+  }).strict(),
   budget: z.object({
     maxDurationMs: z.number().int().min(1000),
     maxInteractions: z.number().int().min(1),
