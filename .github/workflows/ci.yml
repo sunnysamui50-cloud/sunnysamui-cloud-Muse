@@ -6,7 +6,7 @@ on:
   push:
     branches: [main]
 permissions:
-  contents: write
+  contents: read
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -18,29 +18,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Bootstrap lockfile on trusted checkpoint branch
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/fix/operational-checkpoint' && hashFiles('package-lock.json') == '' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          npm install --package-lock-only --ignore-scripts
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json
-          git commit -m "chore: add reproducible npm lockfile"
-          git push origin HEAD:fix/operational-checkpoint
       - name: Install dependencies
-        run: npm install --ignore-scripts
-      - name: Emit generated lockfile for checkpoint capture
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          npm install --package-lock-only --ignore-scripts
-          echo "MUSE_LOCKFILE_BEGIN"
-          base64 -w 0 package-lock.json | fold -w 3000
-          echo
-          echo "MUSE_LOCKFILE_END"
+        run: npm ci --ignore-scripts
       - name: Reproducibility gate
         run: test -f package-lock.json
+
       - name: Typecheck
         run: npm run typecheck
       - name: Unit tests
