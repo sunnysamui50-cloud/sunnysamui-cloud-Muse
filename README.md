@@ -48,24 +48,24 @@ It does not expose shell execution, arbitrary SQL, arbitrary URL fetching, files
 
 ## GitHub Actions deployment
 
-Deployment is CI-gated and automatic after successful CI on `main`; manual dispatch remains available.
+Deployment is CI-gated and automatic after successful CI on main; manual dispatch remains available.
 
 Repository variables:
 
-- `GCP_PROJECT_ID`
-- `GCP_WIF_PROVIDER`
-- `GCP_DEPLOY_SERVICE_ACCOUNT`
-- `GCP_RUNTIME_SERVICE_ACCOUNT`
-- `APP_API_BASE_URL`
+- GCP_PROJECT_ID
+- GCP_WIF_PROVIDER
+- GCP_DEPLOY_SERVICE_ACCOUNT
+- GCP_RUNTIME_SERVICE_ACCOUNT
+- APP_API_BASE_URL
 
 Repository secret used by the live verifier:
 
-- `MUSE_MCP_BEARER_TOKEN`
+- MUSE_MCP_BEARER_TOKEN
 
 Runtime application secrets are held in Google Secret Manager:
 
-- `MUSE_MCP_BEARER_TOKEN`
-- `MUSE_APP_API_TOKEN`
+- MUSE_MCP_BEARER_TOKEN
+- MUSE_APP_API_TOKEN
 
 Flow:
 
@@ -90,13 +90,27 @@ push/merge main -> CI green -> Cloud Run deployment -> live MCP/auth/browser ver
 15. no secret in repository history
 16. browser mission returns PASS / FAIL / BLOCKED / UNPROVEN with structured findings
 17. browser mission diagnosis identifies the next diagnostic action
-18. reproducible `npm ci` build with committed package-lock.json
+18. reproducible npm ci build with committed package-lock.json
 19. browser worker is not publicly invokable in production and Muse uses short-lived Cloud Run identity tokens
 
 The deployment workflow automatically performs the live MCP handshake/tool-boundary/auth checks and browser-worker health check.
 
+## Adversarial PCM validation
+
+The independent PCM validation methodology is defined in docs/ADVERSARIAL_PCM_CAMPAIGN.md.
+
+The model is deliberately three-layered:
+
+- TDD remembers confirmed behaviour and defects.
+- CVD repeatedly challenges the known boundaries.
+- Muse discovers previously untested or weakly tested boundaries.
+
+The default CVD campaign is approximately 100 targeted cases, not a hard product ceiling. The campaign prioritises differential pairs, linguistic degradation, false-positive/false-negative boundaries, longitudinal behaviour, information leakage and tenant isolation instead of repeating large volumes of known-good cases.
+
 ## Current status
 
-Muse is in the pre-deployment hardening checkpoint. The browser mission path has caller-controlled time and interaction budgets, structured outcomes, evidence, and first-pass diagnosis. Live deployment is not claimed until GCP Workload Identity, runtime secrets, upstream API contracts, reproducible dependency installation and live verification are available.
+Muse is in the pre-deployment hardening checkpoint. The browser mission path has caller-controlled time and interaction budgets, structured outcomes, evidence, and first-pass diagnosis. The adversarial PCM methodology is now documented without expanding the approved eight-tool boundary.
 
-See [docs/gcp-bootstrap.md](docs/gcp-bootstrap.md) for the standalone GCP setup.
+Live deployment is not claimed until GCP Workload Identity, runtime secrets, upstream API contracts, reproducible dependency installation and live verification are available.
+
+See docs/gcp-bootstrap.md for the standalone GCP setup.
