@@ -8,7 +8,8 @@ const config: Config = {
   MCP_BEARER_TOKEN: "m".repeat(32),
   APP_API_BASE_URL: "https://api.example.com",
   APP_API_TOKEN: "app-secret",
-  APP_API_TIMEOUT_MS: 1000
+  APP_API_TIMEOUT_MS: 1000,
+  BROWSER_WORKER_AUTH_MODE: "bearer"
 };
 
 test("sends the application bearer token and parses JSON", async () => {
