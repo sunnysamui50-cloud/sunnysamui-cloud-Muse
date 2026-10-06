@@ -120,7 +120,7 @@ async function executeStep(page: Page, step: BrowserStep, evidence: BrowserEvide
     case "click": {
       const locator = getTarget(page, step.target);
       await locator.first().click({ timeout });
-      evidence.push({ type: "action", action: "click:" + (step.target.name ?? step.target.text), url: page.url() });
+      evidence.push({ type: "action", action: "click:" + (step.target.name ?? step.target.text ?? step.target.selector), url: page.url() });
       return page;
     }
     case "type": {
@@ -141,6 +141,22 @@ async function executeStep(page: Page, step: BrowserStep, evidence: BrowserEvide
       else await new Promise((resolve) => setTimeout(resolve, step.milliseconds));
       evidence.push({ type: "action", action: "wait", url: page.url() });
       return page;
+    case "assert": {
+      const failures: string[] = [];
+      if (step.urlContains && !page.url().includes(step.urlContains)) failures.push(`url does not contain "${step.urlContains}"`);
+      if (step.titleContains && !(await page.title()).includes(step.titleContains)) failures.push(`title does not contain "${step.titleContains}"`);
+      if (step.textContains) {
+        const body = await page.locator("body").innerText({ timeout });
+        if (!body.includes(step.textContains)) failures.push(`page text does not contain "${step.textContains}"`);
+      }
+      if (failures.length > 0) throw new Error(`Browser assertion failed: ${failures.join("; ")}`);
+      evidence.push({
+        type: "action",
+        action: "assert:" + [step.urlContains, step.titleContains, step.textContains].filter(Boolean).join("|"),
+        url: page.url()
+      });
+      return page;
+    }
   }
 }
 
