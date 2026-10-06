@@ -135,7 +135,9 @@ async function executeStep(page: Page, step: BrowserStep, evidence: BrowserEvide
       if (step.titleContains && !(await page.title()).includes(step.titleContains)) failures.push(`title does not contain "${step.titleContains}"`);
       if (step.textContains && !(await page.locator("body").innerText({ timeout })).includes(step.textContains)) failures.push(`page text does not contain "${step.textContains}"`);
       if (failures.length) throw new Error(`Browser assertion failed: ${failures.join("; ")}`);
-      evidence.push({ type: "action", action: "assert:" + [step.urlContains, step.titleContains, step.textContains].filter(Boolean).join("|"), url: page.url() });
+      provenCriteria.add(step.criterionIndex);
+      evidence.push({ type: "action", action: `assert[criterion:${step.criterionIndex}]:` + [step.urlContains, step.titleContains, step.textContains].filter(Boolean).join("|"), url: page.url() });
+      return page;
       return page;
     }
   }
@@ -175,6 +177,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
     let interactionsUsed = 0;
     let status: BrowserMissionResult["status"] = "PASS";
     let exhausted: "time" | "interactions" | undefined;
+    const provenCriteria = new Set<number>();
 
     try {
       if (signal?.aborted) throw new Error("Browser mission cancelled");
@@ -234,13 +237,16 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
       const finalUrl = page.url();
       const title = await page.title();
       const assertionCount = mission.steps.filter((step) => step.type === "assert").length;
-      if (status === "PASS" && findings.length === 0 && assertionCount === 0) {
+      const missingCriteria = mission.acceptanceCriteria.map((_, index) => index).filter((index) => !provenCriteria.has(index));
+      if (status === "PASS" && findings.length === 0 && (assertionCount === 0 || missingCriteria.length > 0)) {
         status = "UNPROVEN";
         findings.push({
           severity: "warning",
           kind: "unverified",
-          message: "Mission completed without an executable browser assertion; acceptance criteria are not machine-verified.",
-          recommendedAction: "Add explicit assert steps for the acceptance criteria and rerun the mission."
+          message: assertionCount === 0
+            ? "Mission completed without an executable browser assertion; acceptance criteria are not machine-verified."
+            : `Mission completed with ${missingCriteria.length} acceptance criteria not covered by successful executable assertions: ${missingCriteria.join(", ")}.`,
+          recommendedAction: "Add explicit assert steps mapped to every acceptance criterion and rerun the mission."
         });
       }
       const diagnosis = diagnoseBrowserMission(status, findings);
