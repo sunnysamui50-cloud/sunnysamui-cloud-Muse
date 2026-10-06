@@ -98,9 +98,14 @@ printf '%s' 'YOUR_APP_API_TOKEN' | \
   gcloud secrets create MUSE_APP_API_TOKEN \
   --project=myvoice-508222 \
   --data-file=-
+
+printf '%s' 'YOUR_BROWSER_WORKER_TOKEN' | \
+  gcloud secrets create MUSE_BROWSER_WORKER_TOKEN \
+  --project=myvoice-508222 \
+  --data-file=-
 ```
 
-Grant the runtime service account access:
+Grant the runtime service account access to all three runtime secrets:
 
 ```bash
 gcloud secrets add-iam-policy-binding MUSE_MCP_BEARER_TOKEN \
@@ -109,6 +114,11 @@ gcloud secrets add-iam-policy-binding MUSE_MCP_BEARER_TOKEN \
   --role="roles/secretmanager.secretAccessor"
 
 gcloud secrets add-iam-policy-binding MUSE_APP_API_TOKEN \
+  --project=myvoice-508222 \
+  --member="serviceAccount:muse-runtime@myvoice-508222.iam.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+
+gcloud secrets add-iam-policy-binding MUSE_BROWSER_WORKER_TOKEN \
   --project=myvoice-508222 \
   --member="serviceAccount:muse-runtime@myvoice-508222.iam.gserviceaccount.com" \
   --role="roles/secretmanager.secretAccessor"
@@ -157,6 +167,8 @@ The two tokens are Google Secret Manager secrets, not GitHub variables.
 ## 8. First deployment
 
 The repository intentionally uses manual deployment while the system is being hardened.
+
+The deployment uses `muse-runtime` as the Cloud Run runtime identity for both services. The browser worker currently authenticates the Muse gateway with the dedicated `MUSE_BROWSER_WORKER_TOKEN`; it does not receive the application API token or MCP bearer token.
 
 Run:
 
