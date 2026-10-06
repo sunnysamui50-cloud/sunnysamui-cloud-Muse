@@ -61,10 +61,6 @@ jobs:
         id: muse
         run: |
           BASE_ARGS=(--image "${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-mcp:${{ github.sha }}" --region "${{ env.REGION }}" --platform managed --allow-unauthenticated --service-account "${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}" --min 0 --max 2 --cpu 1 --memory 512Mi --concurrency 40 --timeout 3600s --set-env-vars "APP_API_BASE_URL=${{ vars.APP_API_BASE_URL }},APP_API_TIMEOUT_MS=10000,BROWSER_WORKER_URL=${{ steps.browser.outputs.url }},BROWSER_WORKER_AUTH_MODE=iam" --set-secrets "MCP_BEARER_TOKEN=MUSE_MCP_BEARER_TOKEN:latest")
-          if [ -n "${{ vars.APP_API_BASE_URL }}" ]; then
-            test -n "${{ secrets.MUSE_APP_API_TOKEN }}" || { echo "APP_API_BASE_URL is set but MUSE_APP_API_TOKEN is missing"; exit 1; }
-            BASE_ARGS+=(--set-secrets "MCP_BEARER_TOKEN=MUSE_MCP_BEARER_TOKEN:latest,APP_API_TOKEN=MUSE_APP_API_TOKEN:latest")
-          fi
           gcloud run deploy "${{ env.MUSE_SERVICE }}" "${BASE_ARGS[@]}"
           echo "url=$(gcloud run services describe "${{ env.MUSE_SERVICE }}" --region "${{ env.REGION }}" --format='value(status.url)')" >> "$GITHUB_OUTPUT"
       - name: Verify live MCP and real browser mission
