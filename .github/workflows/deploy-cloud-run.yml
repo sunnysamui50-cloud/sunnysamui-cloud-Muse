@@ -37,14 +37,17 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+      - name: Resolve verified commit
+        id: revision
+        run: echo "sha=${{ github.event.workflow_run.head_sha || github.sha }}" >> "$GITHUB_OUTPUT"
       - name: Build Muse container
-        run: docker build --tag ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-mcp:${{ github.sha }} .
+        run: docker build --tag ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-mcp:${{ steps.revision.outputs.sha }} .
       - name: Push Muse container
-        run: docker push ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-mcp:${{ github.sha }}
+        run: docker push ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-mcp:${{ steps.revision.outputs.sha }}
       - name: Build browser worker container
-        run: docker build --file Dockerfile.browser --tag ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-browser-worker:${{ github.sha }} .
+        run: docker build --file Dockerfile.browser --tag ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-browser-worker:${{ steps.revision.outputs.sha }} .
       - name: Push browser worker container
-        run: docker push ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-browser-worker:${{ github.sha }}
+        run: docker push ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-browser-worker:${{ steps.revision.outputs.sha }}
       - name: Deploy browser worker
         id: browser
         run: |
