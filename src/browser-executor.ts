@@ -2,6 +2,7 @@ import { chromium, type Browser, type BrowserContext, type Page } from "playwrig
 import { promises as dns } from "node:dns";
 import { isIP } from "node:net";
 import type { BrowserMission, BrowserStep, BrowserMissionResult, BrowserEvidence, BrowserFinding } from "./browser-schemas.js";
+import { diagnoseBrowserMission } from "./mission-diagnosis.js";
 
 const MAX_SCREENSHOT_BYTES = 1_500_000;
 const DNS_LOOKUP_TIMEOUT_MS = 2000;
@@ -203,6 +204,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
       const finalUrl = page.url();
       const title = await page.title();
       if (status === "PASS" && findings.length === 0) status = "PASS";
+      const diagnosis = diagnoseBrowserMission(status, findings);
       return {
         ok: true,
         status,
@@ -212,6 +214,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
         title,
         evidence,
         findings,
+        diagnosis,
         budget: {
           maxDurationMs: mission.maxDurationMs,
           maxInteractions: mission.maxInteractions,
@@ -223,6 +226,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
     } catch (error) {
       const classified = classifyFailure(error);
       findings.push(classified.finding);
+      const diagnosis = diagnoseBrowserMission(classified.status, findings);
       return {
         ok: true,
         status: classified.status,
@@ -232,6 +236,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
         title: "Mission did not reach a browser page",
         evidence,
         findings,
+        diagnosis,
         budget: {
           maxDurationMs: mission.maxDurationMs,
           maxInteractions: mission.maxInteractions,
