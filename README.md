@@ -87,6 +87,7 @@ The deployed MCP endpoint is printed by the workflow.
 16. browser mission returns PASS / FAIL / BLOCKED / UNPROVEN with structured findings
 17. browser mission diagnosis identifies the next diagnostic action
 18. reproducible `npm ci` build with committed package-lock.json
+19. browser worker is not publicly invokable in production and Muse uses short-lived Cloud Run identity tokens
 
 The deployment workflow automatically performs the live MCP handshake/tool-boundary/auth checks and browser-worker health check.
 
