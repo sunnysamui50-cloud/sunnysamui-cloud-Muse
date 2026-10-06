@@ -7,6 +7,7 @@ test("browser missions reject unsafe and oversized input", () => {
   assert.equal(BrowserMissionSchema.safeParse({ steps: [{ type: "navigate", url: "http://example.com" }] }).success, false);
   assert.equal(BrowserMissionSchema.safeParse({ steps: Array.from({ length: 13 }, () => ({ type: "wait", milliseconds: 100 })) }).success, false);
   assert.equal(BrowserMissionSchema.safeParse({ steps: [{ type: "screenshot" }, { type: "screenshot" }, { type: "screenshot" }, { type: "screenshot" }] }).success, false);
+  assert.equal(BrowserMissionSchema.safeParse({ steps: [{ type: "assert" }] }).success, false);
 });
 
 test("browser mission applies bounded defaults", () => {
@@ -15,9 +16,7 @@ test("browser mission applies bounded defaults", () => {
       { type: "navigate", url: "https://www.wikipedia.org/" },
       { type: "snapshot" },
       { type: "screenshot" },
-      { type: "click", target: { role: "button", name: "Search" } },
-      { type: "type", target: { placeholder: "Search Wikipedia" }, text: "Koh Samui", submit: true },
-      { type: "wait", text: "Koh Samui" }
+      { type: "assert", titleContains: "Wikipedia" }
     ]
   });
   assert.equal(mission.maxDurationMs, 60000);
