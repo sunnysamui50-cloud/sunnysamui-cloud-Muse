@@ -27,6 +27,7 @@ const WaitStep = StepBase.extend({
 }).refine((value) => Boolean(value.milliseconds ?? value.text), "Wait requires milliseconds or text");
 const AssertStep = StepBase.extend({
   type: z.literal("assert"),
+  criterionIndex: z.number().int().min(0).max(99),
   urlContains: z.string().trim().min(1).max(200).optional(),
   titleContains: z.string().trim().min(1).max(200).optional(),
   textContains: z.string().trim().min(1).max(500).optional()
