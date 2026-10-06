@@ -15,4 +15,4 @@ The browser worker is a separate deployment boundary.
 
 A live MCP handshake, negative-auth checks and live browser-worker health check are post-deployment gates.
 
-A committed package-lock.json and npm ci are release requirements before production; the current checkpoint deliberately does not claim that gate is satisfied.
+A committed package-lock.json and npm ci are now enforced by CI and Docker builds at this checkpoint.
