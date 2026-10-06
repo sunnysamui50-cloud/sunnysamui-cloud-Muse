@@ -71,7 +71,7 @@ export function buildMcpServer(appClient: AppClient, browserClient: BrowserClien
   server.registerTool("search_docs", { title: "Search Documentation", description: "Search the approved application documentation index.", inputSchema: SearchDocsSchema },
     async (input) => { try { const parsed = SearchDocsSchema.parse(input); return jsonResult(await audited("search_docs", parsed, () => appClient.searchDocs(parsed))); } catch (error) { return toToolError(error); } });
 
-  server.registerTool("run_browser_mission", { title: "Run Browser Mission", description: "Execute a bounded HTTPS browser mission and return structured evidence plus screenshots.", inputSchema: BrowserMissionSchema },
+  server.registerTool("run_browser_mission", { title: "Run Browser Mission", description: "Execute a caller-budgeted HTTPS browser mission. The caller supplies the time and interaction budgets; large missions are supported. Return structured evidence plus screenshots.", inputSchema: BrowserMissionSchema },
     async (input) => { try { const parsed = BrowserMissionSchema.parse(input); return browserResult(await audited("run_browser_mission", parsed, () => browserClient.runMission(parsed))); } catch (error) { return toToolError(error); } });
 
   return server;
