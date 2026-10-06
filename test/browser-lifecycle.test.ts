@@ -34,6 +34,8 @@ test("browser executor honours caller cancellation", { skip: process.env.MUSE_BR
 
 test("browser executor enforces the caller interaction budget", { skip: process.env.MUSE_BROWSER_TEST !== "1" }, async () => {
   const mission = BrowserMissionSchema.parse({
+    objective: "Verify interaction budget enforcement",
+    acceptanceCriteria: ["Mission stops at the caller interaction budget"],
     maxDurationMs: 30000,
     maxInteractions: 1,
     steps: [
