@@ -162,6 +162,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
     let expired = false;
     let cancelled = false;
     const deadline = new Promise<never>((_, reject) => { rejectDeadline = reject; });
+    deadline.catch(() => undefined);
     const abortHandler = () => { cancelled = true; rejectDeadline?.(new Error("Browser mission cancelled")); };
     const evidence: BrowserEvidence[] = [];
     const findings: BrowserFinding[] = [];
