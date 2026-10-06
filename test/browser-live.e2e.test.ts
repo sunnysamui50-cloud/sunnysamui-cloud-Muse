@@ -19,12 +19,14 @@ test("REAL browser mission reaches an external site, types, clicks, reads and ca
       { type: "click", target: { selector: 'button:has-text("Search"):visible' } },
       { type: "wait", text: "Koh Samui", timeoutMs: 15000 },
       { type: "snapshot", maxChars: 12000 },
+      { type: "assert", textContains: "Koh Samui" },
       { type: "screenshot" }
     ]
   });
 
   const result = await new PlaywrightBrowserExecutor().run(mission);
   assert.equal(result.ok, true);
+  assert.equal(result.status, "PASS");
   const finalUrl = result.finalUrl;
   assert.ok(finalUrl);
   assert.match(finalUrl, /wikipedia\.org/);
