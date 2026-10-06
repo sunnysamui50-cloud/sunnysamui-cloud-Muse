@@ -97,5 +97,6 @@ export const BrowserMissionResultSchema = z.object({
   }).strict()
 }).strict();
 
+export type BrowserEvidence = z.infer<typeof BrowserEvidenceSchema>;
 export type BrowserMissionResult = z.infer<typeof BrowserMissionResultSchema>;
 export type BrowserFinding = z.infer<typeof FindingSchema>;
