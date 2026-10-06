@@ -5,6 +5,8 @@ import { BrowserMissionSchema } from "../src/browser-schemas.js";
 
 test("browser executor enforces the hard mission deadline", { skip: process.env.MUSE_BROWSER_TEST !== "1" }, async () => {
   const mission = BrowserMissionSchema.parse({
+    objective: "Verify deadline enforcement",
+    acceptanceCriteria: ["Mission terminates at its deadline"],
     maxDurationMs: 5000,
     maxInteractions: 1,
     steps: [{ type: "wait", milliseconds: 10000 }]
@@ -17,6 +19,8 @@ test("browser executor enforces the hard mission deadline", { skip: process.env.
 test("browser executor honours caller cancellation", { skip: process.env.MUSE_BROWSER_TEST !== "1" }, async () => {
   const controller = new AbortController();
   const mission = BrowserMissionSchema.parse({
+    objective: "Verify cancellation",
+    acceptanceCriteria: ["Mission cancels promptly"],
     maxDurationMs: 30000,
     maxInteractions: 2,
     steps: [{ type: "wait", milliseconds: 10000 }]
