@@ -18,6 +18,12 @@ export function diagnoseBrowserMission(
     return { summary: "The mission did not establish a successful outcome, but produced no diagnostic finding.", confidence: "low", nextAction: "Collect additional evidence and rerun the mission." };
   }
   switch (first.kind) {
+    case "unverified":
+      return {
+        summary: "The mission completed, but its acceptance criteria were not machine-verified because no explicit browser assertion was executed.",
+        confidence: "high",
+        nextAction: "Add explicit assert steps for the acceptance criteria and rerun the mission."
+      };
     case "assertion":
       return {
         summary: "An explicit browser assertion failed; the observed page state did not satisfy the requested condition.",
