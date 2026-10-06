@@ -1,186 +1,78 @@
 # GCP bootstrap for Muse
 
-This is the one-time Google Cloud setup for the standalone Muse MCP service.
+Muse uses a completely separate Google Cloud project from MyVoice, OmniAgent and Chordstream.
 
-Existing project:
+## Target
 
-- Project ID: `myvoice-508222`
-- Project number: `408643281527`
+- Project ID: `muse-agent-control`
+- Project number: `961760273239`
 - Region: `europe-west2`
-- Existing workload identity pool: `github`
+- GitHub repository: `sunnysamui50-cloud/sunnysamui-cloud-Muse`
+- GitHub repository ID: `1404558057`
 
-Do not reuse the existing OmniAgent GitHub provider for Muse. Create a separate provider restricted to the Muse repository.
+Do not reuse a deployer service account, Artifact Registry repository, secret, or cross-project IAM binding from another application.
 
-Muse repository ID:
+## Automated bootstrap
 
-`1404558057`
-
-## 1. Enable required APIs
-
-```bash
-gcloud services enable \
-  run.googleapis.com \
-  artifactregistry.googleapis.com \
-  secretmanager.googleapis.com \
-  iamcredentials.googleapis.com \
-  sts.googleapis.com \
-  --project=myvoice-508222
-```
-
-## 2. Create dedicated service accounts
+Run from an authenticated Google Cloud Shell session after billing is enabled:
 
 ```bash
-gcloud iam service-accounts create muse-deployer \
-  --project=myvoice-508222 \
-  --display-name="Muse GitHub deployer"
-
-gcloud iam service-accounts create muse-runtime \
-  --project=myvoice-508222 \
-  --display-name="Muse Cloud Run runtime"
+bash scripts/bootstrap-gcp.sh
 ```
 
-## 3. Create Artifact Registry repository
+The script creates the required APIs, `muse-deployer`, `muse-runtime`, Artifact Registry repository `muse`, runtime Secret Manager entries, and a Muse-specific GitHub Workload Identity Federation pool/provider.
 
-```bash
-gcloud artifacts repositories create muse \
-  --repository-format=docker \
-  --location=europe-west2 \
-  --project=myvoice-508222
-```
+It does not create service-account keys.
 
-If it already exists, keep it.
+The WIF provider is restricted by immutable GitHub repository ID as well as repository name. Google recommends immutable ID claims for GitHub federation because repository names can potentially be reused.
 
-Grant only repository-level write access to the deployer:
+## Secrets
 
-```bash
-gcloud artifacts repositories add-iam-policy-binding muse \
-  --location=europe-west2 \
-  --project=myvoice-508222 \
-  --member="serviceAccount:muse-deployer@myvoice-508222.iam.gserviceaccount.com" \
-  --role="roles/artifactregistry.writer"
-```
+The bootstrap prompts for secret values without echoing them.
 
-## 4. Grant deployment permissions
+Muse's current runtime does not require a Gemini API key, so one is not provisioned by the bootstrap. Do not put API keys into source control or GitHub variables.
 
-```bash
-gcloud projects add-iam-policy-binding myvoice-508222 \
-  --member="serviceAccount:muse-deployer@myvoice-508222.iam.gserviceaccount.com" \
-  --role="roles/run.admin"
+The Cloud Run runtime service account receives Secret Manager accessor permission. The GitHub deployer does not receive application secret values.
 
-gcloud projects add-iam-policy-binding myvoice-508222 \
-  --member="serviceAccount:muse-deployer@myvoice-508222.iam.gserviceaccount.com" \
-  --role="roles/serviceusage.serviceUsageConsumer"
+For live verification, configure the GitHub Actions secret `MUSE_MCP_BEARER_TOKEN` with the same MCP bearer value entered during bootstrap. The deployed service reads its runtime copy from Secret Manager.
 
-gcloud iam service-accounts add-iam-policy-binding \
-  muse-runtime@myvoice-508222.iam.gserviceaccount.com \
-  --project=myvoice-508222 \
-  --member="serviceAccount:muse-deployer@myvoice-508222.iam.gserviceaccount.com" \
-  --role="roles/iam.serviceAccountUser"
-```
-
-## 5. Create the runtime secrets
-
-Generate the MCP bearer token locally. Never commit it.
-
-```bash
-openssl rand -hex 32
-```
-
-Create the secrets:
-
-```bash
-printf '%s' 'YOUR_MCP_BEARER_TOKEN' | \
-  gcloud secrets create MUSE_MCP_BEARER_TOKEN \
-  --project=myvoice-508222 \
-  --data-file=-
-
-printf '%s' 'YOUR_APP_API_TOKEN' | \
-  gcloud secrets create MUSE_APP_API_TOKEN \
-  --project=myvoice-508222 \
-  --data-file=-
-
-printf '%s' 'YOUR_BROWSER_WORKER_TOKEN' | \
-  gcloud secrets create MUSE_BROWSER_WORKER_TOKEN \
-  --project=myvoice-508222 \
-  --data-file=-
-```
-
-Grant the runtime service account access to all three runtime secrets:
-
-```bash
-gcloud secrets add-iam-policy-binding MUSE_MCP_BEARER_TOKEN \
-  --project=myvoice-508222 \
-  --member="serviceAccount:muse-runtime@myvoice-508222.iam.gserviceaccount.com" \
-  --role="roles/secretmanager.secretAccessor"
-
-gcloud secrets add-iam-policy-binding MUSE_APP_API_TOKEN \
-  --project=myvoice-508222 \
-  --member="serviceAccount:muse-runtime@myvoice-508222.iam.gserviceaccount.com" \
-  --role="roles/secretmanager.secretAccessor"
-
-gcloud secrets add-iam-policy-binding MUSE_BROWSER_WORKER_TOKEN \
-  --project=myvoice-508222 \
-  --member="serviceAccount:muse-runtime@myvoice-508222.iam.gserviceaccount.com" \
-  --role="roles/secretmanager.secretAccessor"
-```
-
-## 6. Create a Muse-specific GitHub OIDC provider
-
-The existing GitHub workload identity pool can be reused, but the provider should be separate and restricted to Muse.
-
-```bash
-gcloud iam workload-identity-pools providers create-oidc muse-github \
-  --project=myvoice-508222 \
-  --location=global \
-  --workload-identity-pool=github \
-  --issuer-uri=https://token.actions.githubusercontent.com \
-  --attribute-mapping="google.subject=assertion.sub,attribute.repository_id=assertion.repository_id,attribute.repository=assertion.repository" \
-  --attribute-condition="assertion.repository_id == '1404558057'"
-```
-
-Grant that exact repository identity permission to impersonate the deployer:
-
-```bash
-gcloud iam service-accounts add-iam-policy-binding \
-  muse-deployer@myvoice-508222.iam.gserviceaccount.com \
-  --project=myvoice-508222 \
-  --role=roles/iam.workloadIdentityUser \
-  --member="principalSet://iam.googleapis.com/projects/408643281527/locations/global/workloadIdentityPools/github/attribute.repository_id/1404558057"
-```
-
-This prevents another repository from using the Muse deploy identity.
-
-## 7. GitHub repository variables
-
-Add these repository variables to Muse:
+## GitHub repository variables
 
 ```text
-GCP_PROJECT_ID=myvoice-508222
-GCP_WIF_PROVIDER=projects/408643281527/locations/global/workloadIdentityPools/github/providers/muse-github
-GCP_DEPLOY_SERVICE_ACCOUNT=muse-deployer@myvoice-508222.iam.gserviceaccount.com
-GCP_RUNTIME_SERVICE_ACCOUNT=muse-runtime@myvoice-508222.iam.gserviceaccount.com
-APP_API_BASE_URL=https://YOUR-REAL-APPLICATION-API
+GCP_PROJECT_ID=muse-agent-control
+GCP_WIF_PROVIDER=projects/961760273239/locations/global/workloadIdentityPools/github/providers/muse-github
+GCP_DEPLOY_SERVICE_ACCOUNT=muse-deployer@muse-agent-control.iam.gserviceaccount.com
+GCP_RUNTIME_SERVICE_ACCOUNT=muse-runtime@muse-agent-control.iam.gserviceaccount.com
+APP_API_BASE_URL=<actual upstream application API>
 ```
 
-The two tokens are Google Secret Manager secrets, not GitHub variables.
+Do not invent `APP_API_BASE_URL`; it must be the authoritative upstream API endpoint.
 
-## 8. First deployment
+## Deployment security
 
-The repository intentionally uses manual deployment while the system is being hardened.
+The deployment creates:
 
-The deployment uses `muse-runtime` as the Cloud Run runtime identity for both services. The browser worker is private to Cloud Run and grants `roles/run.invoker` only to `muse-runtime`. Muse obtains a short-lived identity token from the Cloud Run metadata server and calls the worker over HTTPS. The browser worker does not receive the application API token or MCP bearer token.
+- `muse-mcp`: public network endpoint protected by the MCP bearer token.
+- `muse-browser-worker`: private Cloud Run service, invokable only by `muse-runtime`.
 
-Run:
+Muse obtains a short-lived Google-signed identity token from the Cloud Run metadata server and sends it to the private browser worker. This follows Google's documented Cloud Run service-to-service authentication pattern.
 
-GitHub -> Actions -> Deploy Muse MCP to Cloud Run -> Run workflow.
+No browser-worker bearer secret is required in production.
 
-The workflow:
+## First deployment
 
-1. obtains a short-lived Google credential through GitHub OIDC
-2. builds the Docker image
-3. pushes it to Artifact Registry
-4. deploys the image to Cloud Run
-5. attaches the two Secret Manager secrets
-6. uses the dedicated runtime service account
+After bootstrap and GitHub variables/secrets are configured:
 
-This avoids long-lived Google service-account keys. Google recommends Workload Identity Federation for external deployment workloads rather than service-account keys.
+1. CI must be green at the deliberate checkpoint.
+2. Deploy Muse from GitHub Actions.
+3. Build and push both containers.
+4. Deploy the private browser worker and grant only `muse-runtime` `roles/run.invoker`.
+5. Deploy Muse MCP with Secret Manager references.
+6. Verify MCP authentication, the exact eight-tool boundary, and a real external browser mission.
+7. Verify browser-worker IAM health.
+
+Do not merge the operational PR until the real deployment and live verification gates pass.
+
+## Current blocker
+
+As of 2026-10-06, `muse-agent-control` exists but Google has not yet allowed the existing billing account to be linked because the billing/project quota increase request is pending. Do not rerun the bootstrap until billing is enabled.
