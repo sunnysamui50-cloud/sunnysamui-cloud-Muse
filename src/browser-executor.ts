@@ -219,7 +219,16 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
 
       const finalUrl = page.url();
       const title = await page.title();
-      if (status === "PASS" && findings.length === 0) status = "PASS";
+      const assertionCount = mission.steps.filter((step) => step.type === "assert").length;
+      if (status === "PASS" && findings.length === 0 && assertionCount === 0) {
+        status = "UNPROVEN";
+        findings.push({
+          severity: "warning",
+          kind: "assertion",
+          message: "Mission completed without an executable browser assertion; acceptance criteria are not machine-verified.",
+          recommendedAction: "Add explicit assert steps for the acceptance criteria and rerun the mission."
+        });
+      }
       const diagnosis = diagnoseBrowserMission(status, findings);
       return {
         ok: true,
