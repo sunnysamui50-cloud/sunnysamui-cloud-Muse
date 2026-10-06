@@ -37,7 +37,7 @@ try {
         { type: "type", target: { selector: 'input[type="search"]:visible' }, text: "Koh Samui" },
         { type: "click", target: { selector: 'button:has-text("Search"):visible' } },
         { type: "wait", text: "Koh Samui", timeoutMs: 15000 },
-        { type: "assert", textContains: "Koh Samui" },
+        { type: "assert", criterionIndex: 0, textContains: "Koh Samui" },
         { type: "snapshot", maxChars: 12000 },
         { type: "screenshot" }
       ]
