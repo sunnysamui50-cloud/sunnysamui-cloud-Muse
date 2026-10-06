@@ -33,6 +33,22 @@ test("sends the application bearer token and parses JSON", async () => {
   }
 });
 
+test("rejects successful non-JSON application responses", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response("not-json", { status: 200 });
+  try {
+    await assert.rejects(
+      () => new AppClient(config).getAppStatus(),
+      (error: unknown) => {
+        assert.equal((error as Error).message, "Application API returned invalid JSON");
+        return true;
+      }
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("does not expose upstream 5xx response details", async () => {
   const originalFetch = globalThis.fetch;
 
