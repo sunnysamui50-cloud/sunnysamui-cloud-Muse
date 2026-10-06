@@ -15,4 +15,4 @@ The browser worker is a separate deployment boundary.
 
 A live MCP handshake, negative-auth checks and live browser-worker health check are post-deployment gates.
 
-A committed package-lock.json and npm ci are now enforced by CI and Docker builds at this checkpoint.
+A committed package-lock.json and npm ci are now enforced by CI and Docker builds at this checkpoint. Production browser-worker invocation is now designed for Cloud Run IAM rather than a shared bearer secret.
