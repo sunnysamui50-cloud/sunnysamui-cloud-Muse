@@ -2,7 +2,7 @@ FROM mcr.microsoft.com/playwright:v1.63.0-noble AS build
 
 WORKDIR /app
 COPY package.json ./
-RUN npm install --ignore-scripts
+RUN npm ci --ignore-scripts
 COPY tsconfig.json ./
 COPY src ./src
 RUN npm run typecheck
