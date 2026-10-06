@@ -7,6 +7,8 @@ const runLive = process.env.MUSE_LIVE_BROWSER_E2E === "1";
 
 test("REAL browser mission reaches an external site, types, clicks, reads and captures evidence", { skip: !runLive }, async () => {
   const mission = BrowserMissionSchema.parse({
+    objective: "Verify external search works",
+    acceptanceCriteria: ["Koh Samui appears in search evidence"],
     maxDurationMs: 45000,
     maxInteractions: 20,
     steps: [
