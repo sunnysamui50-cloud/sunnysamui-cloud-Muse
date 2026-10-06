@@ -8,6 +8,7 @@ const runLive = process.env.MUSE_LIVE_BROWSER_E2E === "1";
 test("REAL browser mission reaches an external site, types, clicks, reads and captures evidence", { skip: !runLive }, async () => {
   const mission = BrowserMissionSchema.parse({
     maxDurationMs: 45000,
+    maxInteractions: 20,
     steps: [
       { type: "navigate", url: "https://en.wikipedia.org/wiki/Main_Page" },
       { type: "snapshot" },
