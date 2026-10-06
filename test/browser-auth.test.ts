@@ -12,7 +12,7 @@ test("uses Cloud Run metadata identity in IAM mode", async () => {
   try {
     globalThis.fetch = (async (input) => { requestUrl = String(input); return new Response("identity-token", { status: 200 }); }) as typeof fetch;
     assert.equal(await getBrowserWorkerAuthorization("iam", "https://browser.example.com"), "Bearer identity-token");
-    assert.match(requestUrl, /metadata\\.google\\.internal/);
-    assert.match(requestUrl, /audience=https%3A%2F%2Fbrowser\\.example\\.com/);
+    assert.match(requestUrl, /metadata\.google\.internal/);
+    assert.match(requestUrl, /audience=https%3A%2F%2Fbrowser\.example\.com/);
   } finally { globalThis.fetch = originalFetch; }
 });
