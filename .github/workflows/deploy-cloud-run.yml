@@ -27,6 +27,12 @@ jobs:
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install verifier dependencies
+        run: npm install --ignore-scripts
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
       - name: Configure Docker for Artifact Registry
