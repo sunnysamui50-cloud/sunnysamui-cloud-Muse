@@ -14,6 +14,10 @@ export class AppClient {
   constructor(private readonly config: Config) {}
 
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
+    if (!this.config.APP_API_BASE_URL || !this.config.APP_API_TOKEN) {
+      throw new AppApiError("Application API is not configured", 503, "APP_API_NOT_CONFIGURED");
+    }
+
     const startedAt = Date.now();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.config.APP_API_TIMEOUT_MS);
