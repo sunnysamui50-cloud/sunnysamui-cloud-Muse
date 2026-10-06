@@ -2,11 +2,31 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { BrowserMissionResultSchema } from "../src/browser-schemas.js";
 
+const base = {
+  ok: true,
+  status: "PASS",
+  objective: "Verify a mission",
+  acceptanceCriteria: ["The expected text appears"],
+  finalUrl: "https://example.com/",
+  title: "Example",
+  evidence: [],
+  findings: [],
+  budget: { maxDurationMs: 10000, maxInteractions: 10, interactionsUsed: 2, durationMs: 500 }
+};
+
+test("browser result schema accepts a passing mission with structured outcome", () => {
+  assert.equal(BrowserMissionResultSchema.safeParse(base).success, true);
+});
+
+test("browser result schema accepts FAIL, BLOCKED and UNPROVEN outcomes", () => {
+  for (const status of ["FAIL", "BLOCKED", "UNPROVEN"]) {
+    assert.equal(BrowserMissionResultSchema.safeParse({ ...base, status }).success, true);
+  }
+});
+
 test("browser result schema accepts multiple screenshot evidence items without a product-level evidence-count ceiling", () => {
   const result = BrowserMissionResultSchema.safeParse({
-    ok: true,
-    finalUrl: "https://example.com/",
-    title: "Example",
+    ...base,
     evidence: Array.from({ length: 20 }, () => ({
       type: "screenshot",
       url: "https://example.com/",
@@ -19,9 +39,7 @@ test("browser result schema accepts multiple screenshot evidence items without a
 
 test("browser result schema rejects unexpected evidence fields", () => {
   const result = BrowserMissionResultSchema.safeParse({
-    ok: true,
-    finalUrl: "https://example.com/",
-    title: "Example",
+    ...base,
     evidence: [{ type: "screenshot", url: "https://example.com/", mimeType: "image/png", data: "aGVsbG8=" }]
   });
   assert.equal(result.success, false);
