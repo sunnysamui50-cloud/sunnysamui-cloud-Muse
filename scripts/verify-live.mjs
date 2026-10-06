@@ -28,11 +28,11 @@ try {
     arguments: {
       maxDurationMs: 45000,
       steps: [
-        { type: "navigate", url: "https://www.wikipedia.org/" },
+        { type: "navigate", url: "https://en.wikipedia.org/wiki/Main_Page" },
         { type: "snapshot" },
         { type: "screenshot" },
-        { type: "type", target: { placeholder: "Search Wikipedia" }, text: "Koh Samui" },
-        { type: "click", target: { role: "button", name: "Search" } },
+        { type: "type", target: { selector: 'input[type="search"]:visible' }, text: "Koh Samui" },
+        { type: "click", target: { selector: 'button:has-text("Search"):visible' } },
         { type: "wait", text: "Koh Samui", timeoutMs: 15000 },
         { type: "snapshot", maxChars: 12000 },
         { type: "screenshot" }
