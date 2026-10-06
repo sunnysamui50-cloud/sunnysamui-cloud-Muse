@@ -34,6 +34,7 @@ try {
         { type: "type", target: { selector: 'input[type="search"]:visible' }, text: "Koh Samui" },
         { type: "click", target: { selector: 'button:has-text("Search"):visible' } },
         { type: "wait", text: "Koh Samui", timeoutMs: 15000 },
+        { type: "assert", textContains: "Koh Samui" },
         { type: "snapshot", maxChars: 12000 },
         { type: "screenshot" }
       ]
@@ -54,7 +55,7 @@ try {
     ok: true,
     server: client.getServerVersion(),
     tools: actual,
-    browserAcceptance: { externalSite: "wikipedia.org", query: "Koh Samui", screenshots: images.length }
+    browserAcceptance: { externalSite: "wikipedia.org", query: "Koh Samui", assertion: "textContains", screenshots: images.length }
   }, null, 2));
 } finally {
   await client.close();
