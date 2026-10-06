@@ -5,12 +5,18 @@ import { BrowserMissionSchema } from "../src/browser-schemas.js";
 
 test("browser missions reject unsafe input but accept large caller-budgeted missions", () => {
   assert.equal(BrowserMissionSchema.safeParse({
+    objective: "Test the application login flow",
+    acceptanceCriteria: ["Login reaches the authenticated landing page"],
     steps: [{ type: "navigate", url: "http://example.com" }],
     maxDurationMs: 60000,
     maxInteractions: 100
   }).success, false);
 
   const largeMission = BrowserMissionSchema.safeParse({
+    objective: "Exercise a large end-to-end workflow",
+    acceptanceCriteria: ["The workflow completes successfully"],
+    instructions: "Investigate failures and capture evidence.",
+    plan: { summary: "Large workflow test", phases: [{ name: "startup", purpose: "Reach the application" }] },
     steps: [
       ...Array.from({ length: 20 }, () => ({ type: "wait", milliseconds: 100 })),
       ...Array.from({ length: 4 }, () => ({ type: "screenshot" }))
@@ -27,6 +33,8 @@ test("browser mission requires explicit execution budgets", () => {
   }).success, false);
 
   const mission = BrowserMissionSchema.parse({
+    objective: "Verify the application entry point",
+    acceptanceCriteria: ["The page identifies itself as Wikipedia"],
     steps: [
       { type: "navigate", url: "https://www.wikipedia.org/" },
       { type: "snapshot" },
@@ -37,6 +45,7 @@ test("browser mission requires explicit execution budgets", () => {
     maxInteractions: 20
   });
   assert.equal(mission.maxDurationMs, 60000);
+  assert.equal(mission.maxInteractions, 20);
   assert.equal(mission.maxInteractions, 20);
 });
 
