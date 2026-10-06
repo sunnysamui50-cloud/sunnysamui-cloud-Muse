@@ -77,7 +77,7 @@ export const BrowserMissionResultSchema = z.object({
   status: z.enum(["PASS", "FAIL", "BLOCKED", "UNPROVEN"]),
   objective: z.string().max(5000),
   acceptanceCriteria: z.array(z.string().min(1).max(1000)).min(1).max(100),
-  finalUrl: z.string().url(),
+  finalUrl: z.string().url().nullable(),
   title: z.string().max(500),
   evidence: z.array(BrowserEvidenceSchema),
   findings: z.array(FindingSchema),
