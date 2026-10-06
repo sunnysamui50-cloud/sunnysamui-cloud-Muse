@@ -11,6 +11,7 @@ const base = {
   title: "Example",
   evidence: [],
   findings: [],
+  diagnosis: { summary: "Mission completed", confidence: "high", nextAction: "Review evidence against acceptance criteria" },
   budget: { maxDurationMs: 10000, maxInteractions: 10, interactionsUsed: 2, durationMs: 500 }
 };
 
