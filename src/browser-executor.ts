@@ -3,7 +3,6 @@ import { promises as dns } from "node:dns";
 import { isIP } from "node:net";
 import type { BrowserMission, BrowserStep } from "./browser-schemas.js";
 
-const MAX_SCREENSHOTS = 3;
 const MAX_SCREENSHOT_BYTES = 1_500_000;
 const DNS_LOOKUP_TIMEOUT_MS = 2000;
 
@@ -109,9 +108,6 @@ async function executeStep(page: Page, step: BrowserStep, evidence: BrowserEvide
       return page;
     }
     case "screenshot": {
-      if (evidence.filter((item) => item.type === "screenshot").length >= MAX_SCREENSHOTS) {
-        throw new Error("Mission screenshot limit exceeded");
-      }
       const buffer = await page.screenshot({ type: "jpeg", quality: 60, fullPage: step.fullPage, timeout });
       if (buffer.byteLength > MAX_SCREENSHOT_BYTES) throw new Error("Screenshot exceeds the 1.5 MB evidence limit");
       evidence.push({ type: "screenshot", url: page.url(), mimeType: "image/jpeg", data: buffer.toString("base64") });
@@ -197,8 +193,13 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
       const page = await context.newPage();
       const evidence: BrowserEvidence[] = [];
 
+      let interactions = 0;
       for (const step of mission.steps) {
         if (expired) throw new Error("Browser mission exceeded its hard deadline");
+        if (interactions >= mission.maxInteractions) {
+          throw new Error("Browser mission exceeded its interaction budget");
+        }
+        interactions += 1;
         try {
           await Promise.race([executeStep(page, step, evidence), deadline]);
         } catch (error) {
