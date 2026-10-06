@@ -36,7 +36,7 @@ jobs:
         run: |
           npm install --package-lock-only --ignore-scripts
           echo "MUSE_LOCKFILE_BEGIN"
-          base64 -w 0 package-lock.json
+          base64 -w 0 package-lock.json | fold -w 3000
           echo
           echo "MUSE_LOCKFILE_END"
       - name: Reproducibility gate
