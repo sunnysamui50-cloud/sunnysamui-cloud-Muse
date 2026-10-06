@@ -33,6 +33,7 @@ It does not expose shell execution, arbitrary SQL, arbitrary URL fetching, files
 - CI used as a deliberate checkpoint to conserve GitHub Actions minutes
 - deployment/runtime verification before declaring success
 - no secrets in source control
+- browser worker uses Cloud Run IAM service-to-service authentication in production
 - preserve the approved eight-tool security boundary
 
 ## Runtime
