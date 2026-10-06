@@ -36,13 +36,18 @@ const AssertStep = StepBase.extend({
 );
 
 export const BrowserStepSchema = z.discriminatedUnion("type", [NavigateStep, SnapshotStep, ScreenshotStep, ClickStep, TypeStep, WaitStep, AssertStep]);
+
+/**
+ * A live mission is governed by the budget supplied by the caller.
+ * maxInteractions counts executable browser steps, including evidence and assertion steps.
+ * There is deliberately no small product-level step or screenshot ceiling.
+ */
 export const BrowserMissionSchema = z.object({
-  steps: z.array(BrowserStepSchema).min(1).max(12),
-  maxDurationMs: z.number().int().min(5000).max(90000).default(60000)
-}).strict().refine(
-  (mission) => mission.steps.filter((step) => step.type === "screenshot").length <= 3,
-  "Mission may request at most three screenshots"
-);
+  steps: z.array(BrowserStepSchema).min(1),
+  maxDurationMs: z.number().int().min(1000),
+  maxInteractions: z.number().int().min(1)
+}).strict();
+
 export type BrowserMission = z.infer<typeof BrowserMissionSchema>;
 export type BrowserStep = z.infer<typeof BrowserStepSchema>;
 
@@ -59,5 +64,5 @@ export const BrowserMissionResultSchema = z.object({
   ok: z.literal(true),
   finalUrl: z.string().url(),
   title: z.string().max(500),
-  evidence: z.array(BrowserEvidenceSchema).max(12)
+  evidence: z.array(BrowserEvidenceSchema)
 }).strict();
