@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/playwright:v1.63.0-noble AS build
 
 WORKDIR /app
-COPY package.json ./
+COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 COPY tsconfig.json ./
 COPY src ./src
