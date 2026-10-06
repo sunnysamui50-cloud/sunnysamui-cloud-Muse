@@ -60,7 +60,7 @@ export async function assertPublicHttpsUrl(rawUrl: string): Promise<URL> {
   if (url.username || url.password) throw new Error("Browser navigation URLs must not contain credentials");
   if (url.port && url.port !== "443") throw new Error("Browser navigation is restricted to HTTPS port 443");
 
-  const hostname = url.hostname.toLowerCase().replace(/\.$/, "");
+  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
   if (
     hostname === "localhost" ||
     hostname === "metadata.google.internal" ||
