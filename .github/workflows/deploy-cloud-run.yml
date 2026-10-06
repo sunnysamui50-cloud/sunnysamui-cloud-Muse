@@ -48,12 +48,12 @@ jobs:
       - name: Deploy browser worker
         id: browser
         run: |
-          gcloud run deploy "${{ env.BROWSER_SERVICE }}" --image "${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-browser-worker:${{ github.sha }}" --region "${{ env.REGION }}" --platform managed --allow-unauthenticated --min 0 --max 2 --cpu 1 --memory 1Gi --concurrency 1 --timeout 120s --set-secrets "BROWSER_WORKER_TOKEN=MUSE_BROWSER_WORKER_TOKEN:latest"
+          gcloud run deploy "${{ env.BROWSER_SERVICE }}" --image "${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-browser-worker:${{ github.sha }}" --region "${{ env.REGION }}" --platform managed --allow-unauthenticated --min 0 --max 2 --cpu 1 --memory 1Gi --concurrency 1 --timeout 3600s --set-secrets "BROWSER_WORKER_TOKEN=MUSE_BROWSER_WORKER_TOKEN:latest"
           echo "url=$(gcloud run services describe "${{ env.BROWSER_SERVICE }}" --region "${{ env.REGION }}" --format='value(status.url)')" >> "$GITHUB_OUTPUT"
       - name: Deploy Muse MCP
         id: muse
         run: |
-          gcloud run deploy "${{ env.MUSE_SERVICE }}" --image "${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-mcp:${{ github.sha }}" --region "${{ env.REGION }}" --platform managed --allow-unauthenticated --min 0 --max 2 --cpu 1 --memory 512Mi --concurrency 40 --timeout 120s --set-env-vars "APP_API_BASE_URL=${{ vars.APP_API_BASE_URL }},APP_API_TIMEOUT_MS=10000,BROWSER_WORKER_URL=${{ steps.browser.outputs.url }}" --set-secrets "MCP_BEARER_TOKEN=MUSE_MCP_BEARER_TOKEN:latest,APP_API_TOKEN=MUSE_APP_API_TOKEN:latest,BROWSER_WORKER_TOKEN=MUSE_BROWSER_WORKER_TOKEN:latest"
+          gcloud run deploy "${{ env.MUSE_SERVICE }}" --image "${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-mcp:${{ github.sha }}" --region "${{ env.REGION }}" --platform managed --allow-unauthenticated --min 0 --max 2 --cpu 1 --memory 512Mi --concurrency 40 --timeout 3600s --set-env-vars "APP_API_BASE_URL=${{ vars.APP_API_BASE_URL }},APP_API_TIMEOUT_MS=10000,BROWSER_WORKER_URL=${{ steps.browser.outputs.url }}" --set-secrets "MCP_BEARER_TOKEN=MUSE_MCP_BEARER_TOKEN:latest,APP_API_TOKEN=MUSE_APP_API_TOKEN:latest,BROWSER_WORKER_TOKEN=MUSE_BROWSER_WORKER_TOKEN:latest"
           echo "url=$(gcloud run services describe "${{ env.MUSE_SERVICE }}" --region "${{ env.REGION }}" --format='value(status.url)')" >> "$GITHUB_OUTPUT"
       - name: Verify live MCP and real browser mission
         env:
