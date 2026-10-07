@@ -48,7 +48,8 @@ jobs:
           done
           docker logs muse-mcp-smoke
           exit 1
-\n      - name: Browser worker container build
+
+      - name: Browser worker container build
         run: docker build --file Dockerfile.browser --tag muse-browser-worker:test .
       - name: Real browser TDD
         run: |
