@@ -56,7 +56,8 @@ jobs:
       - name: Resolve browser worker URL
         id: browser-url
         run: |
-          BROWSER_URL="$(gcloud run services describe "${{ env.BROWSER_SERVICE }}" --region "${{ env.REGION }}" --format='value(status.url)')"
+          PROJECT_NUMBER="$(gcloud projects describe "${{ vars.GCP_PROJECT_ID }}" --format='value(projectNumber)')"
+          BROWSER_URL="https://${{ env.BROWSER_SERVICE }}-${PROJECT_NUMBER}.${{ env.REGION }}.run.app"
           test -n "$BROWSER_URL"
           echo "url=$BROWSER_URL" >> "$GITHUB_OUTPUT"
           echo "Browser worker URL: $BROWSER_URL"
