@@ -31,7 +31,24 @@ jobs:
         run: npm run build
       - name: Main container build
         run: docker build --tag muse-mcp:test .
-      - name: Browser worker container build
+      - name: Main container startup smoke
+        run: |
+          docker run --detach --name muse-mcp-smoke --publish 18080:8080 \
+            --env PORT=8080 \
+            --env MCP_BEARER_TOKEN=ci-startup-token-abcdefghijklmnopqrstuvwxyz-123456 \
+            --env BROWSER_WORKER_URL=https://example.com \
+            --env BROWSER_WORKER_AUTH_MODE=iam \
+            muse-mcp:test
+          trap 'docker logs muse-mcp-smoke || true; docker rm -f muse-mcp-smoke >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 20); do
+            if curl --silent --fail http://127.0.0.1:18080/healthz; then
+              exit 0
+            fi
+            sleep 0.5
+          done
+          docker logs muse-mcp-smoke
+          exit 1
+\n      - name: Browser worker container build
         run: docker build --file Dockerfile.browser --tag muse-browser-worker:test .
       - name: Real browser TDD
         run: |
