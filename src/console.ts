@@ -64,6 +64,14 @@ export function parseConsoleMission(targetUrl: string, missionText: string): Bro
   const candidate = { ...(raw as Record<string, unknown>) };
   const steps = Array.isArray(candidate.steps) ? [...candidate.steps] as Array<Record<string, unknown>> : [];
 
+  // Accept the common generated "ms" shorthand and normalize it to the canonical schema field.
+  for (const step of steps) {
+    if (step && step.type === "wait" && step.milliseconds === undefined && typeof step.ms === "number") {
+      step.milliseconds = step.ms;
+      delete step.ms;
+    }
+  }
+
   const navigateIndex = steps.findIndex((step) => step && step.type === "navigate");
   if (navigateIndex >= 0) {
     steps[navigateIndex] = { ...steps[navigateIndex], url: url.toString() };
