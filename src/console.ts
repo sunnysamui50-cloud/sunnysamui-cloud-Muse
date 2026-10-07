@@ -1,8 +1,5 @@
-import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
-import { createMcpHandler } from "@modelcontextprotocol/server";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { BrowserMissionSchema, type BrowserMission, type BrowserStep } from "./browser-schemas.js";
-import { buildMcpServer } from "./mcp-server.js";
 import type { AppClient } from "./app-client.js";
 import type { BrowserClient } from "./browser-client.js";
 import { consoleHtml } from "./console-ui.js";
@@ -82,48 +79,10 @@ export function parseConsoleMission(targetUrl: string, missionText: string): Bro
 
 export async function runConsoleMission(
   mission: BrowserMission,
-  appClient: AppClient,
+  _appClient: AppClient,
   browserClient: BrowserClient
 ): Promise<unknown> {
-  const handler = createMcpHandler(
-    () => buildMcpServer(appClient, browserClient),
-    { responseMode: "json", maxRequestBodySize: 1024 * 1024 }
-  );
-  const client = new Client({ name: "muse-console", version: "0.1.0" });
-  const transport = new StreamableHTTPClientTransport(new URL("http://muse-console.local/mcp"), {
-    fetch: (input, init) => handler.fetch(new Request(input, init))
-  });
-
-  try {
-    await client.connect(transport);
-    const result = await client.callTool({ name: "run_browser_mission", arguments: mission });
-    if (result.isError) {
-      const text = result.content?.find((item) => item.type === "text");
-      throw new Error(text && text.type === "text" ? text.text : "Muse returned a tool error.");
-    }
-
-    const text = result.content?.find((item) => item.type === "text");
-    if (!text || text.type !== "text") throw new Error("Muse returned no structured report.");
-    const report = JSON.parse(text.text) as Record<string, unknown>;
-
-    const images = (result.content ?? []).filter(
-      (item): item is { type: "image"; data: string; mimeType: string } => item.type === "image"
-    );
-    if (Array.isArray(report.evidence)) {
-      let imageIndex = 0;
-      report.evidence = report.evidence.map((item) => {
-        if (typeof item === "object" && item !== null && (item as { type?: unknown }).type === "screenshot") {
-          const image = images[imageIndex++];
-          return image ? { ...(item as Record<string, unknown>), data: image.data, mimeType: image.mimeType } : item;
-        }
-        return item;
-      });
-    }
-    return report;
-  } finally {
-    await client.close();
-    await handler.close();
-  }
+  return browserClient.runMission(mission);
 }
 
 export function handleConsoleRequest(
