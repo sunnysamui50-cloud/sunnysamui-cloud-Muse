@@ -67,7 +67,18 @@ jobs:
         run: |
           echo "Verifying browser worker at $BROWSER_URL/healthz"
           TOKEN="$(gcloud auth print-identity-token --impersonate-service-account="${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}" --audiences="$BROWSER_URL")"
-          curl --fail --silent --show-error --header "Authorization: Bearer $TOKEN" "$BROWSER_URL/healthz"
+          set +e
+          HTTP_CODE="$(curl --silent --show-error --dump-header /tmp/headers.txt --output /tmp/body.txt --write-out '%{http_code}' --header "Authorization: Bearer $TOKEN" "$BROWSER_URL/healthz")"
+          CURL_EXIT=$?
+          echo "HTTP status: $HTTP_CODE"
+          echo "--- response headers ---"
+          cat /tmp/headers.txt || true
+          echo "--- response body ---"
+          cat /tmp/body.txt || true
+          echo "--- curl exit: $CURL_EXIT ---"
+          if [ "$CURL_EXIT" -ne 0 ] || [ "$HTTP_CODE" != "200" ]; then
+            exit 1
+          fi
       - name: Deploy Muse MCP
         id: muse
         env:
