@@ -102,7 +102,7 @@ function compileNaturalLanguageMission(targetUrl: string, instruction: string): 
     }
   }
 
-  const songCount = lower.match(/\b(\\d+|five|six|seven|eight|nine|ten)\s+(?:different\s+)?songs?\b/);
+  const songCount = lower.match(/\b(\d+|five|six|seven|eight|nine|ten)\s+(?:different\s+)?songs?\b/);
   if (songCount && searchQueries.length === 0) {
     const words: Record<string, number> = { five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
     const count = Number(songCount[1]) || words[songCount[1]] || 5;
