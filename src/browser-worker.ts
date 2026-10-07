@@ -16,7 +16,7 @@ if (authMode === "bearer" && (!token || token.length < 32)) throw new Error("BRO
 const port = Number(process.env.PORT ?? 8080);
 const executor = new PlaywrightBrowserExecutor();
 
-app.get("/healthz", (_req, res) => {
+app.get("/health", (_req, res) => {
   res.status(200).json({ ok: true, service: "muse-browser-worker" });
 });
 
