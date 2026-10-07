@@ -65,10 +65,10 @@ jobs:
         env:
           BROWSER_URL: ${{ steps.browser-url.outputs.url }}
         run: |
-          echo "Verifying browser worker at $BROWSER_URL/healthz"
+          echo "Verifying browser worker at $BROWSER_URL/health"
           TOKEN="$(gcloud auth print-identity-token --impersonate-service-account="${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}" --audiences="$BROWSER_URL")"
           set +e
-          HTTP_CODE="$(curl --silent --show-error --dump-header /tmp/headers.txt --output /tmp/body.txt --write-out '%{http_code}' --header "Authorization: Bearer $TOKEN" "$BROWSER_URL/healthz")"
+          HTTP_CODE="$(curl --silent --show-error --dump-header /tmp/headers.txt --output /tmp/body.txt --write-out '%{http_code}' --header "Authorization: Bearer $TOKEN" "$BROWSER_URL/health")"
           CURL_EXIT=$?
           echo "HTTP status: $HTTP_CODE"
           echo "--- response headers ---"
