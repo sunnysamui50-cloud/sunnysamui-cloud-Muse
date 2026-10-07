@@ -53,17 +53,26 @@ jobs:
         run: |
           gcloud run deploy "${{ env.BROWSER_SERVICE }}" --image "${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-browser-worker:${{ steps.revision.outputs.sha }}" --region "${{ env.REGION }}" --platform managed --ingress=all --no-allow-unauthenticated --service-account "${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}" --min 0 --max 2 --cpu 1 --memory 1Gi --concurrency 1 --timeout 3600s --set-env-vars "BROWSER_WORKER_AUTH_MODE=iam"
           gcloud run services add-iam-policy-binding "${{ env.BROWSER_SERVICE }}" --region "${{ env.REGION }}" --member "serviceAccount:${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}" --role roles/run.invoker --quiet
-          echo "url=$(gcloud run services describe "${{ env.BROWSER_SERVICE }}" --region "${{ env.REGION }}" --format='value(status.url)')" >> "$GITHUB_OUTPUT"
+      - name: Resolve browser worker URL
+        id: browser-url
+        run: |
+          BROWSER_URL="$(gcloud run services describe "${{ env.BROWSER_SERVICE }}" --region "${{ env.REGION }}" --format='value(status.url)')"
+          test -n "$BROWSER_URL"
+          echo "url=$BROWSER_URL" >> "$GITHUB_OUTPUT"
+          echo "Browser worker URL: $BROWSER_URL"
       - name: Verify browser worker health through Cloud Run IAM
         env:
-          BROWSER_URL: ${{ steps.browser.outputs.url }}
+          BROWSER_URL: ${{ steps.browser-url.outputs.url }}
         run: |
+          echo "Verifying browser worker at $BROWSER_URL/healthz"
           TOKEN="$(gcloud auth print-identity-token --impersonate-service-account="${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}" --audiences="$BROWSER_URL")"
           curl --fail --silent --show-error --header "Authorization: Bearer $TOKEN" "$BROWSER_URL/healthz"
       - name: Deploy Muse MCP
         id: muse
+        env:
+          BROWSER_URL: ${{ steps.browser-url.outputs.url }}
         run: |
-          ENV_MAP="APP_API_TIMEOUT_MS=10000,BROWSER_WORKER_URL=${{ steps.browser.outputs.url }},BROWSER_WORKER_AUTH_MODE=iam"
+          ENV_MAP="APP_API_TIMEOUT_MS=10000,BROWSER_WORKER_URL=$BROWSER_URL,BROWSER_WORKER_AUTH_MODE=iam"
           SECRET_MAP="MCP_BEARER_TOKEN=MUSE_MCP_BEARER_TOKEN:latest"
           if [ -n "${{ vars.APP_API_BASE_URL }}" ]; then
             ENV_MAP="$ENV_MAP,APP_API_BASE_URL=${{ vars.APP_API_BASE_URL }}"
@@ -80,4 +89,4 @@ jobs:
       - name: Show service URLs
         run: |
           echo "Muse MCP: ${{ steps.muse.outputs.url }}/mcp"
-          echo "Browser worker: ${{ steps.browser.outputs.url }}"
+          echo "Browser worker: ${{ steps.browser-url.outputs.url }}"
