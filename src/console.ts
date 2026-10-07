@@ -60,7 +60,8 @@ function extractSearchQueries(instruction: string): string[] {
   }
 
   if (queries.length === 0) {
-    const plain = /(?:search|look up|find)(?:\s+for)?\s+([A-Za-z0-9][^.!?\n]{1,60}?)(?=\s+(?:and|then|after|before|while)\b|[.!?]|$)/gi;
+    const plain = /(?:search|look up|find)(?:\s+for)?\s+([A-Za-z0-9][^.!?
+]{1,60}?)(?=\s+(?:and|then|after|before|while)\b|[.!?]|$)/gi;
     for (const match of instruction.matchAll(plain)) {
       const value = match[1]?.trim();
       if (value && value.length <= 60) queries.push(value);
