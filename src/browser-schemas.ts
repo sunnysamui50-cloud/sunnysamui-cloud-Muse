@@ -12,6 +12,18 @@ const ClickTarget = z.object({
   selector: z.string().trim().min(1).max(300).optional()
 }).strict().refine((value) => Boolean(value.name ?? value.text ?? value.selector), "Click target requires name, text, or selector");
 const ClickStep = StepBase.extend({ type: z.literal("click"), target: ClickTarget });
+
+const SemanticClickStep = StepBase.extend({
+  type: z.literal("semanticClick"),
+  target: z.string().trim().min(1).max(200)
+});
+
+const SemanticClickManyStep = StepBase.extend({
+  type: z.literal("semanticClickMany"),
+  target: z.string().trim().min(1).max(200),
+  count: z.number().int().min(1).max(10)
+});
+
 const TypeTarget = z.object({
   label: z.string().trim().min(1).max(200).optional(),
   placeholder: z.string().trim().min(1).max(200).optional(),
@@ -20,6 +32,14 @@ const TypeTarget = z.object({
   role: z.literal("textbox").default("textbox")
 }).strict().refine((value) => Boolean(value.label ?? value.placeholder ?? value.name ?? value.selector), "Type target requires label, placeholder, name, or selector");
 const TypeStep = StepBase.extend({ type: z.literal("type"), target: TypeTarget, text: z.string().max(2000), submit: z.boolean().default(false) });
+
+const SemanticTypeStep = StepBase.extend({
+  type: z.literal("semanticType"),
+  target: z.string().trim().min(1).max(200),
+  text: z.string().max(2000),
+  submit: z.boolean().default(false)
+});
+
 const WaitStep = StepBase.extend({
   type: z.literal("wait"),
   milliseconds: z.number().int().min(100).max(10000).optional(),
@@ -33,7 +53,18 @@ const AssertStep = StepBase.extend({
   textContains: z.string().trim().min(1).max(500).optional()
 }).refine((value) => Boolean(value.urlContains ?? value.titleContains ?? value.textContains), "Assert requires urlContains, titleContains, or textContains");
 
-export const BrowserStepSchema = z.discriminatedUnion("type", [NavigateStep, SnapshotStep, ScreenshotStep, ClickStep, TypeStep, WaitStep, AssertStep]);
+export const BrowserStepSchema = z.discriminatedUnion("type", [
+  NavigateStep,
+  SnapshotStep,
+  ScreenshotStep,
+  ClickStep,
+  SemanticClickStep,
+  SemanticClickManyStep,
+  TypeStep,
+  SemanticTypeStep,
+  WaitStep,
+  AssertStep
+]);
 
 const MissionPlanSchema = z.object({
   summary: z.string().trim().min(1).max(2000),
@@ -63,7 +94,10 @@ const ScreenshotEvidence = z.object({ type: z.literal("screenshot"), url: z.stri
 const ActionEvidence = z.object({ type: z.literal("action"), action: z.string().min(1).max(500), url: z.string().url() }).strict();
 
 export const BrowserEvidenceSchema = z.discriminatedUnion("type", [
-  NavigationEvidence, SnapshotEvidence, ScreenshotEvidence, ActionEvidence
+  NavigationEvidence,
+  SnapshotEvidence,
+  ScreenshotEvidence,
+  ActionEvidence
 ]);
 
 const FindingSchema = z.object({

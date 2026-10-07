@@ -90,6 +90,92 @@ function getTarget(page: Page, target: { role?: string | undefined; name?: strin
   return page.getByText(target.text!, { exact: true });
 }
 
+function semanticPattern(target: string): RegExp {
+  const alternatives = target.split("|").map((part) => part.trim()).filter(Boolean);
+  const escaped = alternatives.map((part) => part.replace(/[.*+?^$(){}|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+"));
+  return new RegExp(escaped.length ? escaped.join("|") : target, "i");
+}
+
+function semanticCandidates(page: Page, target: string) {
+  const pattern = semanticPattern(target);
+  return page.locator('button, a, [role="button"], input[type="button"], input[type="submit"], summary').filter({ hasText: pattern });
+}
+
+async function semanticClick(page: Page, target: string, timeout: number): Promise<void> {
+  const candidates = semanticCandidates(page, target);
+  const count = await candidates.count();
+  for (let index = 0; index < count; index += 1) {
+    const candidate = candidates.nth(index);
+    if (await candidate.isVisible().catch(() => false)) {
+      await candidate.click({ timeout });
+      return;
+    }
+  }
+
+  const textCandidate = page.getByText(semanticPattern(target)).first();
+  if (await textCandidate.isVisible().catch(() => false)) {
+    await textCandidate.click({ timeout });
+    return;
+  }
+
+  throw new Error(`Could not find a visible control matching "${target}".`);
+}
+
+async function semanticClickMany(page: Page, target: string, count: number, timeout: number, evidence: BrowserEvidence[]): Promise<void> {
+  const candidates = semanticCandidates(page, target);
+  let clicked = 0;
+  for (let index = 0; index < await candidates.count() && clicked < count; index += 1) {
+    const candidate = candidates.nth(index);
+    if (!await candidate.isVisible().catch(() => false)) continue;
+    await candidate.click({ timeout });
+    clicked += 1;
+    evidence.push({ type: "action", action: `semanticClick:${target}:${clicked}`, url: page.url() });
+  }
+
+  if (clicked === 0 && /song|result|item/i.test(target)) {
+    const fallback = page.locator('main a, main button, [role="main"] a, [role="main"] button');
+    for (let index = 0; index < await fallback.count() && clicked < count; index += 1) {
+      const candidate = fallback.nth(index);
+      const text = (await candidate.innerText().catch(() => "")).trim();
+      if (!text || /^(search|discover|saved|refresh|logout|log out|sign in|login|menu)$/i.test(text)) continue;
+      if (!await candidate.isVisible().catch(() => false)) continue;
+      await candidate.click({ timeout });
+      clicked += 1;
+      evidence.push({ type: "action", action: `semanticClickFallback:${clicked}`, url: page.url() });
+    }
+  }
+
+  if (clicked < count) throw new Error(`Could only complete ${clicked} of ${count} semantic clicks for "${target}".`);
+}
+
+async function semanticType(page: Page, target: string, text: string, submit: boolean, timeout: number): Promise<void> {
+  const pattern = semanticPattern(target);
+  const candidates = [
+    page.getByRole("textbox", { name: pattern }),
+    page.getByPlaceholder(pattern),
+    page.getByLabel(pattern)
+  ];
+
+  for (const candidate of candidates) {
+    if (await candidate.count() && await candidate.first().isVisible().catch(() => false)) {
+      await candidate.first().fill(text, { timeout });
+      if (submit) await candidate.first().press("Enter", { timeout });
+      return;
+    }
+  }
+
+  if (/search/i.test(target)) {
+    const firstTextbox = page.getByRole("textbox").first();
+    if (await firstTextbox.isVisible().catch(() => false)) {
+      await firstTextbox.fill(text, { timeout });
+      if (submit) await firstTextbox.press("Enter", { timeout });
+      return;
+    }
+  }
+
+  throw new Error(`Could not find a visible textbox matching "${target}".`);
+}
+
 async function executeStep(page: Page, step: BrowserStep, evidence: BrowserEvidence[], provenCriteria: Set<number>): Promise<Page> {
   const timeout = step.timeoutMs ?? 10000;
   page.setDefaultTimeout(timeout);
@@ -108,6 +194,17 @@ async function executeStep(page: Page, step: BrowserStep, evidence: BrowserEvide
       evidence.push({ type: "screenshot", url: page.url(), mimeType: "image/jpeg", data: buffer.toString("base64") });
       return page;
     }
+    case "semanticClick":
+      await semanticClick(page, step.target, timeout);
+      evidence.push({ type: "action", action: "semanticClick:" + step.target, url: page.url() });
+      return page;
+    case "semanticClickMany":
+      await semanticClickMany(page, step.target, step.count, timeout, evidence);
+      return page;
+    case "semanticType":
+      await semanticType(page, step.target, step.text, step.submit, timeout);
+      evidence.push({ type: "action", action: "semanticType:" + step.target, url: page.url() });
+      return page;
     case "click": {
       const locator = getTarget(page, step.target);
       await locator.first().click({ timeout });
