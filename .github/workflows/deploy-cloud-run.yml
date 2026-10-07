@@ -51,7 +51,7 @@ jobs:
       - name: Deploy browser worker
         id: browser
         run: |
-          gcloud run deploy "${{ env.BROWSER_SERVICE }}" --image "${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-browser-worker:${{ steps.revision.outputs.sha }}" --region "${{ env.REGION }}" --platform managed --ingress=all --no-allow-unauthenticated --service-account "${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}" --min 0 --max 2 --cpu 1 --memory 1Gi --concurrency 1 --timeout 3600s --set-env-vars "BROWSER_WORKER_AUTH_MODE=iam"
+          gcloud run deploy "${{ env.BROWSER_SERVICE }}" --image "${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-browser-worker:${{ steps.revision.outputs.sha }}" --region "${{ env.REGION }}" --platform managed --ingress=all --default-url --no-allow-unauthenticated --service-account "${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}" --min 0 --max 2 --cpu 1 --memory 1Gi --concurrency 1 --timeout 3600s --set-env-vars "BROWSER_WORKER_AUTH_MODE=iam"
           gcloud run services add-iam-policy-binding "${{ env.BROWSER_SERVICE }}" --region "${{ env.REGION }}" --member "serviceAccount:${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}" --role roles/run.invoker --quiet
       - name: Resolve browser worker URL
         id: browser-url
