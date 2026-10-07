@@ -6,6 +6,7 @@ import { isAuthorized } from "./auth.js";
 import { AppClient } from "./app-client.js";
 import { BrowserClient } from "./browser-client.js";
 import { buildMcpServer } from "./mcp-server.js";
+import { handleConsoleRequest } from "./console.js";
 import { audit, createRequestId, runWithRequestId } from "./request-context.js";
 
 const config = loadConfig();
@@ -37,11 +38,18 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
       sendJson(res, 200, { ok: true, service: "muse-mcp", requestId });
       return;
     }
+
+    if (url.pathname === "/" || url.pathname.startsWith("/api/")) {
+      handleConsoleRequest(req, res, appClient, browserClient);
+      return;
+    }
+
     if (url.pathname !== "/mcp") {
       audit("http_request", { method: req.method, path: url.pathname, status: 404 });
       sendJson(res, 404, { error: "NOT_FOUND", message: "Endpoint not found", requestId });
       return;
     }
+
     if (!isAuthorized(req.headers, config.MCP_BEARER_TOKEN)) {
       audit("http_request", { method: req.method, path: "/mcp", status: 401 });
       sendJson(res, 401, { error: "UNAUTHORIZED", message: "Missing or invalid bearer token" });
@@ -61,7 +69,10 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
 
 httpServer.listen(config.PORT, "0.0.0.0", () => {
   audit("service_ready", {
-    service: "muse-mcp", port: config.PORT, endpoint: "/mcp",
+    service: "muse-mcp",
+    port: config.PORT,
+    endpoint: "/mcp",
+    console: "/",
     browserWorkerConfigured: Boolean(config.BROWSER_WORKER_URL)
   });
 });
@@ -71,5 +82,11 @@ async function shutdown(signal: string): Promise<void> {
   await handler.close();
   httpServer.close(() => process.exit(0));
 }
+
+httpServer.on("error", (error) => {
+  audit("service_error", { error: error instanceof Error ? error.message : "unknown" });
+  process.exitCode = 1;
+});
+
 process.once("SIGTERM", () => void shutdown("SIGTERM"));
 process.once("SIGINT", () => void shutdown("SIGINT"));
