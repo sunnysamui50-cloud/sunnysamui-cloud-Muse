@@ -118,7 +118,7 @@ async function executeStep(page: Page, step: BrowserStep, evidence: BrowserEvide
       const locator = step.target.selector ? page.locator(step.target.selector)
         : step.target.label ? page.getByLabel(step.target.label)
         : step.target.placeholder ? page.getByPlaceholder(step.target.placeholder)
-        : page.getByRole("textbox", { name: step.target.name! });
+        : step.target.name ? page.getByRole("textbox", { name: step.target.name }) : page.getByRole("textbox").first();
       await locator.fill(step.text, { timeout });
       if (step.submit) await locator.press("Enter", { timeout });
       evidence.push({ type: "action", action: "type", url: page.url() });
