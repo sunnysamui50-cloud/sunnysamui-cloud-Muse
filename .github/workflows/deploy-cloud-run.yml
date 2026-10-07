@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Checkout verified commit
+      - name: Checkout deployment commit
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
@@ -37,9 +37,14 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
-      - name: Resolve verified commit
+      - name: Resolve deployment commit
         id: revision
-        run: echo "sha=${{ github.event.workflow_run.head_sha || github.sha }}" >> "$GITHUB_OUTPUT"
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          test -n "$SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          echo "Deploying commit: $SHA"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
       - name: Build Muse container
         run: docker build --tag ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/muse/muse-mcp:${{ steps.revision.outputs.sha }} .
       - name: Push Muse container
