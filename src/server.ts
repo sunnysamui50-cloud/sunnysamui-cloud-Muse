@@ -12,11 +12,19 @@ import { audit, createRequestId, runWithRequestId } from "./request-context.js";
 const config = loadConfig();
 const appClient = new AppClient(config);
 const browserClient = new BrowserClient(config);
-const handler = createMcpHandler(
-  () => buildMcpServer(appClient, browserClient),
-  { responseMode: "json", maxRequestBodySize: 1024 * 1024 }
-);
-const nodeHandler = toNodeHandler(handler);
+let handler: ReturnType<typeof createMcpHandler> | undefined;
+let nodeHandler: ReturnType<typeof toNodeHandler> | undefined;
+
+function getMcpNodeHandler() {
+  if (!nodeHandler) {
+    handler = createMcpHandler(
+      () => buildMcpServer(appClient, browserClient),
+      { responseMode: "json", maxRequestBodySize: 1024 * 1024 }
+    );
+    nodeHandler = toNodeHandler(handler);
+  }
+  return nodeHandler;
+}
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.statusCode = status;
@@ -57,7 +65,15 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
     }
 
     audit("http_request", { method: req.method, path: "/mcp", status: "accepted" });
-    void nodeHandler(
+    let mcpHandler: ReturnType<typeof toNodeHandler>;
+    try {
+      mcpHandler = getMcpNodeHandler();
+    } catch (error) {
+      audit("mcp_initialization_error", { error: error instanceof Error ? error.stack ?? error.message : "unknown" });
+      sendJson(res, 500, { error: "INTERNAL_ERROR", message: "MCP initialization failed", requestId });
+      return;
+    }
+    void mcpHandler(
       req as unknown as NodeIncomingMessageLike,
       res as unknown as NodeServerResponseLike
     ).catch((error) => {
@@ -79,7 +95,7 @@ httpServer.listen(config.PORT, "0.0.0.0", () => {
 
 async function shutdown(signal: string): Promise<void> {
   audit("shutdown", { signal });
-  await handler.close();
+  if (handler) await handler.close();
   httpServer.close(() => process.exit(0));
 }
 
