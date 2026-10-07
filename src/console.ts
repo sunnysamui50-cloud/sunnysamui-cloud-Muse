@@ -62,6 +62,8 @@ export function parseConsoleMission(targetUrl: string, missionText: string): Bro
 
   if (typeof raw !== "object" || raw === null) throw new Error("Mission must be a JSON object.");
   const candidate = { ...(raw as Record<string, unknown>) };
+  // The execution plan is derived locally from steps. Ignore any generated plan shape so ChatGPT can use summary/purpose variants without blocking execution.
+  delete candidate.plan;
   const steps = Array.isArray(candidate.steps) ? [...candidate.steps] as Array<Record<string, unknown>> : [];
 
   // Accept the common generated "ms" shorthand and normalize it to the canonical schema field.
