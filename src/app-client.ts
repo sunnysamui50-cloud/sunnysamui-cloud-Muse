@@ -1,3 +1,4 @@
+import { audit } from "./request-context.js";
 import { AppApiError } from "./errors.js";
 import type { Config } from "./config.js";
 import type {
@@ -13,26 +14,32 @@ export class AppClient {
   constructor(private readonly config: Config) {}
 
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
+    if (!this.config.APP_API_BASE_URL || !this.config.APP_API_TOKEN) {
+      throw new AppApiError("Application API is not configured", 503, "APP_API_NOT_CONFIGURED");
+    }
+
+    const startedAt = Date.now();
     const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      this.config.APP_API_TIMEOUT_MS
-    );
+    const timeout = setTimeout(() => controller.abort(), this.config.APP_API_TIMEOUT_MS);
 
     try {
-      const response = await fetch(
-        new URL(path, this.config.APP_API_BASE_URL),
-        {
-          ...init,
-          signal: controller.signal,
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${this.config.APP_API_TOKEN}`,
-            "Content-Type": "application/json",
-            ...(init.headers ?? {})
-          }
+      const response = await fetch(new URL(path, this.config.APP_API_BASE_URL), {
+        ...init,
+        signal: controller.signal,
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${this.config.APP_API_TOKEN}`,
+          "Content-Type": "application/json",
+          ...(init.headers ?? {})
         }
-      );
+      });
+
+      audit("app_api_response", {
+        method: init.method ?? "GET",
+        path,
+        status: response.status,
+        latencyMs: Date.now() - startedAt
+      });
 
       const text = await response.text();
       let body: unknown = null;
@@ -41,33 +48,15 @@ export class AppClient {
         try {
           body = JSON.parse(text);
         } catch {
-          throw new AppApiError(
-            "Application API returned invalid JSON",
-            502,
-            "INVALID_APP_RESPONSE"
-          );
+          throw new AppApiError("Application API returned invalid JSON", 502, "INVALID_APP_RESPONSE");
         }
       }
 
       if (!response.ok) {
-        const upstreamMessage =
-          typeof body === "object" &&
-          body !== null &&
-          "message" in body &&
-          typeof body.message === "string"
-            ? body.message
-            : undefined;
-
-        const message =
-          response.status >= 500
-            ? "Application API returned a server error"
-            : upstreamMessage ?? `Application API returned HTTP ${response.status}`;
-
-        throw new AppApiError(
-          message,
-          response.status,
-          "APP_API_REQUEST_FAILED"
-        );
+        const message = response.status >= 500
+          ? "Application API returned a server error"
+          : `Application API returned HTTP ${response.status}`;
+        throw new AppApiError(message, response.status, "APP_API_REQUEST_FAILED");
       }
 
       return body as T;
@@ -75,26 +64,26 @@ export class AppClient {
       if (error instanceof AppApiError) throw error;
 
       if (error instanceof DOMException && error.name === "AbortError") {
-        throw new AppApiError(
-          "Application API request timed out",
-          504,
-          "APP_API_TIMEOUT"
-        );
+        audit("app_api_timeout", {
+          method: init.method ?? "GET",
+          path,
+          latencyMs: Date.now() - startedAt
+        });
+        throw new AppApiError("Application API request timed out", 504, "APP_API_TIMEOUT");
       }
 
-      throw new AppApiError(
-        error instanceof Error ? error.message : "Application API request failed",
-        502,
-        "APP_API_UNREACHABLE"
-      );
+      audit("app_api_unreachable", {
+        method: init.method ?? "GET",
+        path,
+        latencyMs: Date.now() - startedAt
+      });
+      throw new AppApiError("Application API request failed", 502, "APP_API_UNREACHABLE");
     } finally {
       clearTimeout(timeout);
     }
   }
 
-  getAppStatus() {
-    return this.request("/v1/status");
-  }
+  getAppStatus() { return this.request("/v1/status"); }
 
   listProjects(input: ListProjectsInput) {
     const params = new URLSearchParams({ limit: String(input.limit) });
@@ -103,36 +92,23 @@ export class AppClient {
   }
 
   createTask(input: CreateTaskInput) {
-    return this.request("/v1/tasks", {
-      method: "POST",
-      body: JSON.stringify(input)
-    });
+    return this.request("/v1/tasks", { method: "POST", body: JSON.stringify(input) });
   }
 
   getTask(input: GetTaskInput) {
-    return this.request(
-      `/v1/tasks/${encodeURIComponent(input.taskId)}`
-    );
+    return this.request(`/v1/tasks/${encodeURIComponent(input.taskId)}`);
   }
 
   runSmokeTests(input: RunSmokeTestsInput) {
-    return this.request("/v1/tests/smoke", {
-      method: "POST",
-      body: JSON.stringify(input)
-    });
+    return this.request("/v1/tests/smoke", { method: "POST", body: JSON.stringify(input) });
   }
 
   getTestResults(input: GetTestResultsInput) {
-    return this.request(
-      `/v1/tests/${encodeURIComponent(input.runId)}`
-    );
+    return this.request(`/v1/tests/${encodeURIComponent(input.runId)}`);
   }
 
   searchDocs(input: SearchDocsInput) {
-    const params = new URLSearchParams({
-      q: input.query,
-      limit: String(input.limit)
-    });
+    const params = new URLSearchParams({ q: input.query, limit: String(input.limit) });
     return this.request(`/v1/docs/search?${params.toString()}`);
   }
 }

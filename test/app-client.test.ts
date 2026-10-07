@@ -8,7 +8,8 @@ const config: Config = {
   MCP_BEARER_TOKEN: "m".repeat(32),
   APP_API_BASE_URL: "https://api.example.com",
   APP_API_TOKEN: "app-secret",
-  APP_API_TIMEOUT_MS: 1000
+  APP_API_TIMEOUT_MS: 1000,
+  BROWSER_WORKER_AUTH_MODE: "bearer"
 };
 
 test("sends the application bearer token and parses JSON", async () => {
@@ -28,6 +29,31 @@ test("sends the application bearer token and parses JSON", async () => {
     assert.deepEqual(result, { ok: true });
     assert.equal(seenRequest?.headers.get("authorization"), "Bearer app-secret");
     assert.equal(seenRequest?.url, "https://api.example.com/v1/status");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("reports a controlled unavailable state when the application API is not configured", async () => {
+  const browserOnlyConfig: Config = { PORT: 3000, MCP_BEARER_TOKEN: "m".repeat(32), APP_API_BASE_URL: undefined, APP_API_TOKEN: undefined, APP_API_TIMEOUT_MS: 1000, BROWSER_WORKER_AUTH_MODE: "bearer" };
+  await assert.rejects(() => new AppClient(browserOnlyConfig).getAppStatus(), (error: unknown) => {
+    assert.equal((error as Error).message, "Application API is not configured");
+    assert.equal((error as { code?: string }).code, "APP_API_NOT_CONFIGURED");
+    return true;
+  });
+});
+
+test("rejects successful non-JSON application responses", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response("not-json", { status: 200 });
+  try {
+    await assert.rejects(
+      () => new AppClient(config).getAppStatus(),
+      (error: unknown) => {
+        assert.equal((error as Error).message, "Application API returned invalid JSON");
+        return true;
+      }
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }
