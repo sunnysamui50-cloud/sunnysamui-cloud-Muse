@@ -16,6 +16,7 @@
     "verify:live": "node scripts/verify-live.mjs"
   },
   "dependencies": {
+    "@modelcontextprotocol/client": "2.3.0",
     "@modelcontextprotocol/node": "2.1.1",
     "@modelcontextprotocol/server": "2.3.0",
     "express": "5.2.1",

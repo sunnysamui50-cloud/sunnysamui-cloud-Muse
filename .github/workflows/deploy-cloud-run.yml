@@ -98,8 +98,16 @@ jobs:
           MCP_URL: ${{ steps.muse.outputs.url }}/mcp
           MCP_BEARER_TOKEN: ${{ secrets.MUSE_MCP_BEARER_TOKEN }}
         run: npm run verify:live
+      - name: Verify Muse Console
+        env:
+          MUSE_URL: ${{ steps.muse.outputs.url }}
+        run: |
+          curl --fail --silent --show-error "$MUSE_URL/" | grep -q "Muse Console"
+          echo "Muse Console: $MUSE_URL/"
+
       - name: Show service URLs
         run: |
+          echo "Muse Console: ${{ steps.muse.outputs.url }}/"
           echo "Muse MCP: ${{ steps.muse.outputs.url }}/mcp"
           echo "Browser worker: ${{ steps.browser-url.outputs.url }}"
 
