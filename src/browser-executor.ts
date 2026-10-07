@@ -92,7 +92,7 @@ function getTarget(page: Page, target: { role?: string | undefined; name?: strin
 
 function semanticPattern(target: string): RegExp {
   const alternatives = target.split("|").map((part) => part.trim()).filter(Boolean);
-  const escaped = alternatives.map((part) => part.replace(/[.*+?^$(){}|[\\]\\]/g, "\\$&").replace(/\\s+/g, "\\s+"));
+  const escaped = alternatives.map((part) => part.replace(/[.*+?^$(){}|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+"));
   return new RegExp(escaped.length ? escaped.join("|") : target, "i");
 }
 
