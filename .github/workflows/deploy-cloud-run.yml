@@ -102,3 +102,5 @@ jobs:
         run: |
           echo "Muse MCP: ${{ steps.muse.outputs.url }}/mcp"
           echo "Browser worker: ${{ steps.browser-url.outputs.url }}"
+
+# Diagnostic checkpoint: keep the response-body probe enabled until the 404 is classified.
