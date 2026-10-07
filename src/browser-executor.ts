@@ -191,7 +191,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
       await context.routeWebSocket("**/*", async (webSocket) => {
         try {
           await assertPublicNetworkUrl(webSocket.url());
-          await webSocket.connect();
+          await webSocket.connectToServer();
         } catch {
           await webSocket.close({ code: 1008, reason: "Blocked by Muse network policy" });
         }
